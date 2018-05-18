@@ -129,6 +129,24 @@ AC_ARG_WITH(DDalphaAMG,
               DDalphaAMG_INTERFACE="DDalphaAMG_interface"
               ])
 
+AC_MSG_CHECKING(whether we want to use PRIMME)
+AC_ARG_WITH(PRIMME,
+            AS_HELP_STRING([--with-PRIMME[=dir]], [use PRIMME, to be found in dir]),
+             [echo yes
+              PRIMME_AVAILABLE=1
+              PRIMME_INTERFACE="primme_interface"
+              AC_DEFINE(PRIMME,1,Using PRIMME)
+              PRIMME_dir=$withval
+              LDFLAGS="$LDFLAGS -L${PRIMME_dir}/lib -lprimme"
+              INCLUDES="$INCLUDES -I${PRIMME_dir}/include/"
+              AC_CHECK_LIB([primme],
+                           [primme_constant_info],
+                           [],
+                           [AC_MSG_ERROR([library PRIMME was not found])])],
+             [echo no
+              PRIMME_AVAILABLE=0
+              PRIMME_INTERFACE=""
+              ])
 
 AC_MSG_CHECKING(whether to use QPX intrinsics)
 AC_ARG_ENABLE(qpx,
@@ -386,6 +404,7 @@ AC_SUBST(QUDA_INTERFACE)
 AC_SUBST(QPHIX_INTERFACE)
 AC_SUBST(QPHIX_PROGRAMS)
 AC_SUBST(DDalphaAMG_INTERFACE)
+AC_SUBST(PRIMME_INTERFACE)
 
 INCLUDES="$INCLUDES -I\$(HOME)/include/ -I. -I\${abs_top_builddir}/  -I\${abs_top_srcdir}/ -I${lime_dir}/include/ -I${lemon_dir}/include/"
 DEPFLAGS="$DEPFLAGS"
