@@ -85,7 +85,7 @@ void update_gauge(const double step, hamiltonian_field_t * const hf) {
       exposu3(&w,&deriv);
       restoresu3(&v,&w);
       _su3_times_su3(w, v, *z);
-		restoresu3(&v,&w);
+      restoresu3(&v,&w);
       _su3_assign(*z, v);
     }
   }
