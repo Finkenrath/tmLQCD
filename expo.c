@@ -52,6 +52,100 @@
 #include "su3.h"
 #include "su3adj.h"
 #include "expo.h"
+#include "float.h"
+int N,init_flag;
+double *c;
+
+static void ch_init(void)
+{
+   int k;
+   double fctr;
+
+   N=7;
+   fctr=1.0;
+
+   while (fctr>DBL_EPSILON)
+   {
+      N++;
+      fctr/=(double)(N-7);
+   }
+   N+=(N%2);
+
+   c=malloc((N+1)*sizeof(*c));
+	
+	c[0]=1.0;
+	for (k=0;k<N;k++)
+		c[k+1]=c[k]/(double)(k+1);
+
+	init_flag=1;
+   
+}
+
+
+static double imag_det(const su3adj* p)
+{
+	double d,tos3,o3,os3;
+	tos3=2.0/sqrt(3.0);
+	o3=1.0/3.0;
+	os3=1.0/sqrt(3.0);
+	
+	d=tos3*(*p).d8*(o3*(*p).d8*(*p).d8-(*p).d3*(*p).d3)+2*((*p).d2*(*p).d4*(*p).d7-(*p).d1*(*p).d4*(*p).d6-(*p).d2*(*p).d5*(*p).d6-(*p).d1*(*p).d5*(*p).d7);
+	d+=(os3*(*p).d8-(*p).d3)*((*p).d4*(*p).d4+(*p).d5*(*p).d5)+(os3*(*p).d8+(*p).d3)*((*p).d6*(*p).d6+(*p).d7*(*p).d7)-tos3*(*p).d8*((*p).d1*(*p).d1+(*p).d2*(*p).d2);	
+	return d;
+}
+
+void exposu3o(su3* const vr, const su3adj* const p) 
+{
+  int n;
+  su3 ALIGN v,v2;
+  double ALIGN d;
+  
+  _Complex double t;
+  _Complex double ALIGN p0,p1,p2;
+  _Complex double ALIGN q0,q1,q2;
+
+  if (init_flag==0)
+	ch_init();
+  /* it writes 'p=vec(h_{j,mu})' in matrix form 'v'  */
+  _make_su3(v,*p);
+  /* calculates v^2 */
+  _su3_times_su3(v2,v,v);
+  /* t= -tr(X^2)/2*/
+  t = -0.5*(v2.c00 +v2.c11+v2.c22);
+  /* d= -1i * det(X)*/
+  d=-imag_det(p);
+  printf(" d= %.16f and t=%.16f + 1i %.16f \n",d,creal(t),cimag(t));
+  
+  if(fabs(d)>(1.000001*(1.000002-fabs(t))))
+	  printf("The norm of X is larger than 1 and N = %d \n",N);
+  
+	p0=c[N-6];
+	p1=0.0;
+	p2=0.0;
+	
+	
+	for (n=(N-7);n>=0;n--)
+	{
+		q0=p0;
+		q1=p1;
+		q2=p2;
+
+		p0=c[n]-I*d*q2;
+		p1=q0-t*q2;
+		p2=q1;
+	}
+   
+  /* vr = a0 + a1*v + a2*v2 */
+  vr->c00 = p0 + p1 * v.c00 + p2 * v2.c00;
+  vr->c01 =      p1 * v.c01 + p2 * v2.c01;
+  vr->c02 =      p1 * v.c02 + p2 * v2.c02;
+  vr->c10 =      p1 * v.c10 + p2 * v2.c10;
+  vr->c11 = p0 + p1 * v.c11 + p2 * v2.c11;
+  vr->c12 =      p1 * v.c12 + p2 * v2.c12;
+  vr->c20 =      p1 * v.c20 + p2 * v2.c20;
+  vr->c21 =      p1 * v.c21 + p2 * v2.c21;
+  vr->c22 = p0 + p1 * v.c22 + p2 * v2.c22;
+}
 
 void exposu3(su3* const vr, const su3adj* const p) {
   int i;
@@ -116,6 +210,34 @@ void exposu3_check(su3* const vr, const su3adj* const p, int im) {
   }
 }
 
+void restoresu3o(su3* const vr, const su3* const u) {
+  double ALIGN n0,n1;
+
+  /* normalize rows 1 and 2 */
+  n0 = 1.0 / sqrt(conj(u->c00) * u->c00 + conj(u->c01) * u->c01 + conj(u->c02) * u->c02);
+  n1 = 1.0 / sqrt(conj(u->c10) * u->c10 + conj(u->c11) * u->c11 + conj(u->c12) * u->c12);
+
+  vr->c00 = n0 * u->c00;
+  vr->c01 = n0 * u->c01;
+  vr->c02 = n0 * u->c02;
+
+  vr->c10 = n1 * u->c10;
+  vr->c11 = n1 * u->c11;
+  vr->c12 = n1 * u->c12;
+
+  /* compute  row 3 as the conjugate of the cross-product of 1 and 2 */ 
+  vr->c20 = conj(vr->c01 * vr->c12 - vr->c02 * vr->c11);
+  vr->c21 = conj(vr->c02 * vr->c10 - vr->c00 * vr->c12);
+  vr->c22 = conj(vr->c00 * vr->c11 - vr->c01 * vr->c10);
+  
+  /* compute  row 2 as the conjugate of the cross-product of 3 and 1 */ 
+  vr->c10 = conj(vr->c21 * vr->c02 - vr->c22 * vr->c01);
+  vr->c11 = conj(vr->c22 * vr->c00 - vr->c20 * vr->c02);
+  vr->c12 = conj(vr->c20 * vr->c01 - vr->c21 * vr->c00);
+  
+}
+
+
 void restoresu3(su3* const vr, const su3* const u) {
   double ALIGN n0,n1;
 
@@ -156,6 +278,11 @@ void restoresu3_in_place(su3* const u) {
   u->c20 = conj(u->c01 * u->c12 - u->c02 * u->c11);
   u->c21 = conj(u->c02 * u->c10 - u->c00 * u->c12);
   u->c22 = conj(u->c00 * u->c11 - u->c01 * u->c10);
+  
+  /* compute  row 2 as the conjugate of the cross-product of 3 and 1 */
+  u->c10 = conj(u->c21 * u->c02 - u->c22 * u->c01);
+  u->c11 = conj(u->c22 * u->c00 - u->c20 * u->c02);
+  u->c12 = conj(u->c20 * u->c01 - u->c21 * u->c00);
 }
                                 
 /* Exponentiates a hermitian 3x3 matrix Q */
