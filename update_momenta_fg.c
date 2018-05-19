@@ -57,8 +57,8 @@
  *
  *******************************************************/
 
-void update_momenta_fg(int * mnllist, double step, const int no,
-		       hamiltonian_field_t * const hf, double step0) {
+void update_momenta_fg(int * mnllist, double eps, double stepB, double stepC, const int no,
+		       hamiltonian_field_t * const hf) {
   double atime, etime;
   atime = gettime();
 #ifdef DDalphaAMG
@@ -73,14 +73,15 @@ void update_momenta_fg(int * mnllist, double step, const int no,
   */
 
   int i,mu;
-  double step_fg;
+  double step_fg,step;
   static su3 v,w;
   su3 *z;
   su3 *ztmp;
   static su3adj deriv;
   su3adj *Fm;
 
-  step_fg=-step0*step0/24;
+  step = eps*stetB
+  step_fg=-eps*eps*2.0*stepC/stepB;
   /*
      #ifdef _KOJAK_INST
      #pragma pomp inst begin(updategauge)
