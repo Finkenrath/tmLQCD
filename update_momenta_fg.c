@@ -80,7 +80,7 @@ void update_momenta_fg(int * mnllist, double eps, double stepB, double stepC, co
   static su3adj deriv;
   su3adj *Fm;
 
-  step = eps*stetB
+  step = eps*stepB;
   step_fg=-eps*eps*2.0*stepC/stepB;
   /*
      #ifdef _KOJAK_INST

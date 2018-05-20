@@ -21,7 +21,7 @@
 
 #include "hamiltonian_field.h"
 
-update_momenta_fg(int * mnllist, double eps, double stepB, double stepC, const int no,
+void update_momenta_fg(int * mnllist, double eps, double stepB, double stepC, const int no,
 		       hamiltonian_field_t * const hf);
 
 #endif
