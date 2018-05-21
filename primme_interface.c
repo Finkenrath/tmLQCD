@@ -209,7 +209,6 @@ void primme_tm_set_meth(int id)
 		primme_set_method(PRIMME_LOBPCG_OrthoBasis_Window, &primme_tm);
 	else if (id==13)
 		primme_set_method(PRIMME_LOBPCG_OrthoBasis_Window, &primme_tm);
-	
 }
 
 
@@ -224,12 +223,12 @@ void primme_tm_finalize(void) {
 }
 
 
-int primme_tm_ev(void ) {
+int primme_tm_ev(double *evals) {
 	int i;
-	double * evals,*evecs,*rnorms;
+	double *evecs,*rnorms;
 	
-	/* Allocate space for converged Ritz values and residual norms */
-   evals = (double*)malloc(primme_tm.numEvals*sizeof(complex double));
+	/* Allocate space for converged Ritz values and residual norms 
+   evals = (double*)malloc(primme_tm.numEvals*sizeof(complex double));*/
    evecs = (complex double*)malloc(primme_tm.nLocal*(primme_tm.numEvals)*sizeof(complex double));
    rnorms = (double*)malloc(primme_tm.numEvals*sizeof(complex double));
 
@@ -243,190 +242,190 @@ int primme_tm_ev(void ) {
 		}
 	}
 	
-	free(evals);
+	/*free(evals);*/
 	free(evecs);
 	free(rnorms);
 }
 
-
-void Dnd_augmented(void *x, PRIMME_INT *ldx, void *y, PRIMME_INT *ldy, int *blockSize, primme_svds_params *primme_svds, int *err) {
-   //primme_svds_params *primme_svds = (primme_svds_params*)primme->matrix;
-	complex double *x0 , *x1, *y0 , *y1;
-	printf("AUG\n");
-	
-	
-	x0 = (complex double*)x;
-	x1 = &x0[primme_svds->nLocal];
-	y0 = (complex double*)y;
-	y1 = &y0[primme_svds->nLocal];
-	
-	printf("%d\n",primme_svds->nLocal );
-	/*x0 = (complex double*)x;
-	x1 = (complex double*)x;
-	y0 = (complex double*)y;
-	y1 = (complex double*)y;
-	*/
-	
-   /* [y0; y1] <-  * [x0; x1] */
-	int notrans=0, trans=1;
-   /* y0 <- A^t * x1 */
-   Dnd_svd(x1, ldx, y0, ldy, blockSize, &trans, primme_svds, err);
-   /* y1 <- A * x0 */
-   Dnd_svd(x0, ldx, y1, ldy, blockSize, &notrans, primme_svds, err);			  
-				  
-				  
-	/*			  
-	spinor *l1,*l2,*l3,*l4,*k1,*k2,*k3,*k4;
-	double *dx,*dy;
-	int V;
-	
-	V=24*VOLUME/2;
-	k1=g_spinor_field[0];
-	k2=g_spinor_field[1];
-	k3=g_spinor_field[2];
-	k4=g_spinor_field[3];
-	
-	l1=g_spinor_field[4];
-	l2=g_spinor_field[5];
-	l3=g_spinor_field[6];
-	l4=g_spinor_field[7];
-	
-	MPI_Barrier(MPI_COMM_WORLD);
-	
-	dx=(double *) x;
-	decompact(k1,k2,(bispinor *) x);
-	decompact(k3,k4,(bispinor *) (dx+V));
-	
-	/*if (*transpose)
-	{
-		Qsw_ndpsi(l1,l2,k3,k4);
-		Qsw_dagger_ndpsi(l3,l4,k1,k2);
-	}
-	else
-	{
-		Qsw_ndpsi(l3,l4,k1,k2);
-		Qsw_dagger_ndpsi(l1,l2,k3,k4);
-	//}
-	
-	dy=(double *) y;
-	compact((bispinor *) y,l1,l2);
-	compact((bispinor *) (dy+V),l3,l4);
-	
-	*err = 0;*/
-	
-}
-
-
-void Dnd_svd(void *x, PRIMME_INT *ldx, void *y, PRIMME_INT *ldy, int *blockSize, int * transpose,  primme_svds_params *primme, int *err) {
-   
-	spinor *l1,*l2,*k1,*k2;
-	
-	k1=g_spinor_field[0];
-	k2=g_spinor_field[1];
-	
-	l1=g_spinor_field[0];
-	l2=g_spinor_field[1];
-	
-	printf("huhu %d\n",*transpose);
-	MPI_Barrier(MPI_COMM_WORLD);
-	decompact(k1,k2,(bispinor *) x);
-	
-	if (*transpose)
-		Qsw_dagger_ndpsi(l1,l2,k1,k2);
-	else
-		Qsw_ndpsi(l1,l2,k1,k2);
-
-	MPI_Barrier(MPI_COMM_WORLD);
-	printf("end %d\n",*transpose);
-	
-	compact((bispinor *) y,l1,l2);
-	*err = 0;
-}
-
-
-void primme_tmsvds_init(int aug)
-{
-	primme_svds_initialize (&primme_svds_tm);
-	//primme_svds_tm.matrixMatvec = Dnd_svd;
-	
-	if (aug)
-	{
-		primme_svds_tm.matrixMatvec = Dnd_svd;
-		primme_svds_tm.primme.matrixMatvec = Dnd_augmented; 
-	}
-	else
-		primme_svds_tm.matrixMatvec = Dnd_svd;
-	
-	
-	primme_svds_tm.globalSumReal=par_GlobalSumForDouble;
-	primme_svds_tm.n = 24*VOLUME*g_nproc/2;
-	primme_svds_tm.m = 24*VOLUME*g_nproc/2;
-	primme_svds_tm.numProcs=g_nproc;
-	primme_svds_tm.procID=g_proc_id;
-	primme_svds_tm.nLocal= 24*VOLUME/2;
-	primme_svds_tm.mLocal= 24*VOLUME/2;
-	/* Set problem parameters */
-    /* set problem dimension */
-   primme_svds_tm.numSvals = 1;   /* Number of wanted evs */
-   primme_svds_tm.eps = 1e-5;      /* ||r|| <= eps * ||matrix|| */
-   primme_svds_tm.target = primme_svds_smallest;
-                           /* Wanted the smallest eigenvalues 
-									 primme_svds_smallest
-									 primme_svds_largest
-									 primme_svds_closest_abs
-									 */
-	primme_svds_tm.printLevel=3;
-						
-	primme_svds_tm.commInfo=MPI_COMM_WORLD;
-	/* Set method to solve the problem 
-   primme_svds_set_method (primme_svds_augmented, PRIMME_DEFAULT_METHOD,
-									 primme_svds_op_none, &primme_svds_tm);*/
-	if (aug)
-		primme_svds_set_method(primme_svds_augmented, PRIMME_DEFAULT_METHOD,
-                          PRIMME_DEFAULT_METHOD, &primme_svds_tm);
-}
-
-void primme_tmsvds_set_meth(int id)
-{
-
-	primme_svds_tm.matrixMatvec = Dnd_augmented; /* MV product */
-	primme_svds_tm.n = 24*VOLUME*g_nproc/2;
-	primme_svds_tm.m = 24*VOLUME*g_nproc/2;
-	primme_svds_tm.numSvals = 2; /* Number of singular values */
-	primme_svds_set_method(primme_svds_augmented, PRIMME_DEFAULT_MIN_MATVECS,
-                          PRIMME_DEFAULT_METHOD, &primme_svds_tm);
-	
-	/*
-	primme_svds_display_params(&primme_svds_tm);
-	*/
-}
-
-void primme_tmsvds_finalize(){
-	
-	primme_free(&primme_svds_tm);
-}
-
-int primme_tm_svds(void ) {
-	int i;
-	double * evals,*evecs,*rnorms;
-	
-	primme_svds_display_params(primme_svds_tm);
-	/* Allocate space for converged Ritz values and residual norms */
-   evals = (double*)malloc(primme_svds_tm.numSvals*sizeof(complex double));
-   evecs = (complex double*)malloc(16*primme_svds_tm.nLocal*(primme_svds_tm.numSvals)*sizeof(complex double));
-   rnorms = (double*)malloc(primme_svds_tm.numSvals*sizeof(complex double));
-  
-	printf("start\n");
-	
-   /* Call primme  */
-   zprimme_svds(evals, evecs, rnorms, &primme_svds_tm); 
-	for (i=0; i < primme_svds_tm.initSize; i++) {
-      fprintf(primme_svds_tm.outputFile, "Eval[%d]: %-22.15E rnorm: %-22.15E\n", i+1,
-         evals[i], rnorms[i]); 
-	}
-
-	free(evals);
-	free(evecs);
-	free(rnorms);
-}
-//#endif
+// /*
+// void Dnd_augmented(void *x, PRIMME_INT *ldx, void *y, PRIMME_INT *ldy, int *blockSize, primme_svds_params *primme_svds, int *err) {
+//    //primme_svds_params *primme_svds = (primme_svds_params*)primme->matrix;
+// 	complex double *x0 , *x1, *y0 , *y1;
+// 	printf("AUG\n");
+// 	
+// 	
+// 	x0 = (complex double*)x;
+// 	x1 = &x0[primme_svds->nLocal];
+// 	y0 = (complex double*)y;
+// 	y1 = &y0[primme_svds->nLocal];
+// 	
+// 	printf("%d\n",primme_svds->nLocal );
+// 	/*x0 = (complex double*)x;
+// 	x1 = (complex double*)x;
+// 	y0 = (complex double*)y;
+// 	y1 = (complex double*)y;
+// 	*/
+// 	
+//    /* [y0; y1] <-  * [x0; x1] */
+// 	int notrans=0, trans=1;
+//    /* y0 <- A^t * x1 */
+//    Dnd_svd(x1, ldx, y0, ldy, blockSize, &trans, primme_svds, err);
+//    /* y1 <- A * x0 */
+//    Dnd_svd(x0, ldx, y1, ldy, blockSize, &notrans, primme_svds, err);			  
+// 				  
+// 				  
+// 	/*			  
+// 	spinor *l1,*l2,*l3,*l4,*k1,*k2,*k3,*k4;
+// 	double *dx,*dy;
+// 	int V;
+// 	
+// 	V=24*VOLUME/2;
+// 	k1=g_spinor_field[0];
+// 	k2=g_spinor_field[1];
+// 	k3=g_spinor_field[2];
+// 	k4=g_spinor_field[3];
+// 	
+// 	l1=g_spinor_field[4];
+// 	l2=g_spinor_field[5];
+// 	l3=g_spinor_field[6];
+// 	l4=g_spinor_field[7];
+// 	
+// 	MPI_Barrier(MPI_COMM_WORLD);
+// 	
+// 	dx=(double *) x;
+// 	decompact(k1,k2,(bispinor *) x);
+// 	decompact(k3,k4,(bispinor *) (dx+V));
+// 	
+// 	/*if (*transpose)
+// 	{
+// 		Qsw_ndpsi(l1,l2,k3,k4);
+// 		Qsw_dagger_ndpsi(l3,l4,k1,k2);
+// 	}
+// 	else
+// 	{
+// 		Qsw_ndpsi(l3,l4,k1,k2);
+// 		Qsw_dagger_ndpsi(l1,l2,k3,k4);
+// 	//}
+// 	
+// 	dy=(double *) y;
+// 	compact((bispinor *) y,l1,l2);
+// 	compact((bispinor *) (dy+V),l3,l4);
+// 	
+// 	*err = 0;*/
+// 	
+// }
+// 
+// 
+// void Dnd_svd(void *x, PRIMME_INT *ldx, void *y, PRIMME_INT *ldy, int *blockSize, int * transpose,  primme_svds_params *primme, int *err) {
+//    
+// 	spinor *l1,*l2,*k1,*k2;
+// 	
+// 	k1=g_spinor_field[0];
+// 	k2=g_spinor_field[1];
+// 	
+// 	l1=g_spinor_field[0];
+// 	l2=g_spinor_field[1];
+// 	
+// 	printf("huhu %d\n",*transpose);
+// 	MPI_Barrier(MPI_COMM_WORLD);
+// 	decompact(k1,k2,(bispinor *) x);
+// 	
+// 	if (*transpose)
+// 		Qsw_dagger_ndpsi(l1,l2,k1,k2);
+// 	else
+// 		Qsw_ndpsi(l1,l2,k1,k2);
+// 
+// 	MPI_Barrier(MPI_COMM_WORLD);
+// 	printf("end %d\n",*transpose);
+// 	
+// 	compact((bispinor *) y,l1,l2);
+// 	*err = 0;
+// }
+// 
+// 
+// void primme_tmsvds_init(int aug)
+// {
+// 	primme_svds_initialize (&primme_svds_tm);
+// 	//primme_svds_tm.matrixMatvec = Dnd_svd;
+// 	
+// 	if (aug)
+// 	{
+// 		primme_svds_tm.matrixMatvec = Dnd_svd;
+// 		primme_svds_tm.primme.matrixMatvec = Dnd_augmented; 
+// 	}
+// 	else
+// 		primme_svds_tm.matrixMatvec = Dnd_svd;
+// 	
+// 	
+// 	primme_svds_tm.globalSumReal=par_GlobalSumForDouble;
+// 	primme_svds_tm.n = 24*VOLUME*g_nproc/2;
+// 	primme_svds_tm.m = 24*VOLUME*g_nproc/2;
+// 	primme_svds_tm.numProcs=g_nproc;
+// 	primme_svds_tm.procID=g_proc_id;
+// 	primme_svds_tm.nLocal= 24*VOLUME/2;
+// 	primme_svds_tm.mLocal= 24*VOLUME/2;
+// 	/* Set problem parameters */
+//     /* set problem dimension */
+//    primme_svds_tm.numSvals = 1;   /* Number of wanted evs */
+//    primme_svds_tm.eps = 1e-5;      /* ||r|| <= eps * ||matrix|| */
+//    primme_svds_tm.target = primme_svds_smallest;
+//                            /* Wanted the smallest eigenvalues 
+// 									 primme_svds_smallest
+// 									 primme_svds_largest
+// 									 primme_svds_closest_abs
+// 									 */
+// 	primme_svds_tm.printLevel=3;
+// 						
+// 	primme_svds_tm.commInfo=MPI_COMM_WORLD;
+// 	/* Set method to solve the problem 
+//    primme_svds_set_method (primme_svds_augmented, PRIMME_DEFAULT_METHOD,
+// 									 primme_svds_op_none, &primme_svds_tm);*/
+// 	if (aug)
+// 		primme_svds_set_method(primme_svds_augmented, PRIMME_DEFAULT_METHOD,
+//                           PRIMME_DEFAULT_METHOD, &primme_svds_tm);
+// }
+// 
+// void primme_tmsvds_set_meth(int id)
+// {
+// 
+// 	primme_svds_tm.matrixMatvec = Dnd_augmented; /* MV product */
+// 	primme_svds_tm.n = 24*VOLUME*g_nproc/2;
+// 	primme_svds_tm.m = 24*VOLUME*g_nproc/2;
+// 	primme_svds_tm.numSvals = 2; /* Number of singular values */
+// 	primme_svds_set_method(primme_svds_augmented, PRIMME_DEFAULT_MIN_MATVECS,
+//                           PRIMME_DEFAULT_METHOD, &primme_svds_tm);
+// 	
+// 	/*
+// 	primme_svds_display_params(&primme_svds_tm);
+// 	*/
+// }
+// 
+// void primme_tmsvds_finalize(){
+// 	
+// 	primme_free(&primme_svds_tm);
+// }
+// 
+// int primme_tm_svds(void ) {
+// 	int i;
+// 	double * evals,*evecs,*rnorms;
+// 	
+// 	primme_svds_display_params(primme_svds_tm);
+// 	/* Allocate space for converged Ritz values and residual norms */
+//    evals = (double*)malloc(primme_svds_tm.numSvals*sizeof(complex double));
+//    evecs = (complex double*)malloc(16*primme_svds_tm.nLocal*(primme_svds_tm.numSvals)*sizeof(complex double));
+//    rnorms = (double*)malloc(primme_svds_tm.numSvals*sizeof(complex double));
+//   
+// 	printf("start\n");
+// 	
+//    /* Call primme  */
+//    zprimme_svds(evals, evecs, rnorms, &primme_svds_tm); 
+// 	for (i=0; i < primme_svds_tm.initSize; i++) {
+//       fprintf(primme_svds_tm.outputFile, "Eval[%d]: %-22.15E rnorm: %-22.15E\n", i+1,
+//          evals[i], rnorms[i]); 
+// 	}
+// 
+// 	free(evals);
+// 	free(evecs);
+// 	free(rnorms);
+// }
+// //#endif*/

@@ -34,11 +34,11 @@ void primme_tm_init(int op, int nev, int val, double prec);
 void primme_tm_set_meth(int meth);
 void primme_tm_reset(void);
 void primme_tm_finalize(void);
-int primme_tm_ev(void);
-void primme_tmsvds_init(int aug);
+int primme_tm_ev(double* evals);
+/*void primme_tmsvds_init(int aug);
 void primme_tmsvds_set_meth(int id);
 void primme_tmsvds_finalize(void);
-int primme_tm_svds(void);
+int primme_tm_svds(void);*/
 
 
 #endif /* PRIMME_INTERFACE_H_ */

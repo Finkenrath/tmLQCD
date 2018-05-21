@@ -192,6 +192,8 @@ static inline void rmQuotes(char *str){
 
   int use_preconditioning;
 
+  int primme;
+
   /* macro control over read_input.l is poor. In order to support compilation without
    * a given external library, we need to have these declared here as a dummy.
    * Note that no parameters will actually be passed, the input file reader will
@@ -1816,6 +1818,18 @@ static inline void rmQuotes(char *str){
     mnl->rec_ev = a;
     if(myverbose!=0) printf("  Frequency for computing EV's set to %d in line %d monomial %d\n", mnl->rec_ev, line_of_file, current_monomial);
   }
+  {SPC}*UsePrimmeEV{EQL}yes {
+    #ifdef PRIMME
+    primme = 1;
+    if(myverbose!=0) printf("  UsePrimmeEV is set to yes line %d monomial %d\n", line_of_file, current_monomial);
+    #else  
+    if(myverbose!=0) printf("  UsePrimmeEV is set to yes but not available line %d monomial %d\n", line_of_file, current_monomial);
+    #endif
+  }
+  {SPC}*UsePrimmeEV{EQL}no {
+    primme = 0;
+    if(myverbose!=0) printf("  UsePrimmeEV is set to no line %d monomial %d\n", line_of_file, current_monomial);
+  }
 }
 <NDPOLYMONOMIAL,CLPOLYMONOMIAL>{
   {SPC}*MaxPtildeDegree{EQL}{DIGIT}+ {
@@ -2944,7 +2958,8 @@ int read_input(char * conf_file){
   subprocess_flag = _default_subprocess_flag;
 
   quda_input.fermionbc = TM_QUDA_THETABC;
-
+  primme = 0;
+  
   /* Put -1 in PropInfo.format to see if parse_config() will
   change the value. If not then set it to source_format_flag */
   PropInfo.format = -1;
