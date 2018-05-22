@@ -145,7 +145,7 @@ AC_ARG_WITH(PRIMME,
                            [AC_MSG_ERROR([library PRIMME was not found])])],
              [echo no
               PRIMME_AVAILABLE=0
-              PRIMME_INTERFACE=""
+              PRIMME_INTERFACE="primme_interface"
               ])
 
 AC_MSG_CHECKING(whether to use QPX intrinsics)
