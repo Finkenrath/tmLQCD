@@ -138,7 +138,9 @@ extern "C"
   extern double mg_rho_update;
   extern int mg_update_setup_iter;
   extern int mg_omp_num_threads;
-
+  
+  extern int tune_check_flag;
+  
   int read_input(char *);
   int reread_input(char *);
   

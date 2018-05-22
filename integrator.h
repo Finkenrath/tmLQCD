@@ -68,6 +68,8 @@ extern integrator Integrator;
 /* all following functions are currently defined in integrator.c */
 /* function to initialise the integrator, to be called once at the beginning */
 int init_integrator();
+/* function to tune the integrator*/
+int init4tune_integrator(int level);
 /* function to set the gauge and momenta fields for the integration */
 void integrator_set_fields(hamiltonian_field_t * hf);
 /* and unsets again (to NULL pointer ) */

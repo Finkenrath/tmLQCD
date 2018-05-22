@@ -193,6 +193,7 @@ static inline void rmQuotes(char *str){
 
   int use_preconditioning;
 
+  int tune_check_flag;
   /* macro control over read_input.l is poor. In order to support compilation without
    * a given external library, we need to have these declared here as a dummy.
    * Note that no parameters will actually be passed, the input file reader will
@@ -260,6 +261,7 @@ static inline void rmQuotes(char *str){
 %x RELPREC
 %x REVCHECK
 %x REVINT
+%x TUNECHECK
 %x DEBUG
 %x GMRESM
 %x GMRESDRNEV
@@ -413,6 +415,7 @@ static inline void rmQuotes(char *str){
 ^UseRelativePrecision{EQL}         BEGIN(RELPREC);
 ^ReversibilityCheck{EQL}           BEGIN(REVCHECK);
 ^ReversibilityCheckIntervall{EQL}  BEGIN(REVINT);
+^TuneCheck{EQL}                    BEGIN(TUNECHECK);
 ^DebugLevel{EQL}                   BEGIN(DEBUG);
 ^GMRESMParameter{EQL}              BEGIN(GMRESM);
 ^GMRESDRNrEv{EQL}                  BEGIN(GMRESDRNEV);
@@ -2623,6 +2626,14 @@ static inline void rmQuotes(char *str){
   return_check_flag = 0;
   if(myverbose!=0) printf("Don't perform checks of Reversibility\n");
 }
+<TUNECHECK>yes {
+  tune_check_flag = 1;
+  if(myverbose!=0) printf("Perform tuning using higher order schemes\n");
+}
+<TUNECHECK>no {
+  tune_check_flag = 0;
+  if(myverbose!=0) printf("Don't perform tuning using higher order schemes\n");
+}
 <REVINT>{DIGIT}+ {
   return_check_interval = atoi(yytext);
   if(myverbose!=0) printf("Check reversibility all %d trajectories\n", return_check_interval);
@@ -3011,6 +3022,7 @@ int read_input(char * conf_file){
 
   quda_input.fermionbc = TM_QUDA_THETABC;
 
+  return_check_flag = _default_return_check_flag;
   /* Put -1 in PropInfo.format to see if parse_config() will
   change the value. If not then set it to source_format_flag */
   PropInfo.format = -1;

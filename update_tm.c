@@ -1,4 +1,4 @@
-/***********************************************************************
+make/***********************************************************************
  *
  * Copyright (C) 2002,2003,2004,2005,2006,2007,2008 Carsten Urbach
  *
@@ -71,10 +71,11 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
               const int traj_counter) {
 
   su3 *v, *w;
-  int accept, i=0, j=0, iostatus=0;
+  int accept, i=0, j=0, iostatus=0,m,ns;
 
   double yy[1];
   double dh, expmdh, ret_dh=0., ret_gauge_diff=0., tmp;
+  double tun_dh, *tuna_dh, *adh;
   double atime=0., etime=0.;
   double ks = 0., kc = 0., ds, tr, ts, tt;
 
@@ -84,10 +85,10 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
   double new_plaquette_energy=0., new_rectangle_energy = 0.;
 
   /* Energy corresponding to the Momenta part */
-  double enep=0., enepx=0., ret_enep = 0.;
+  double enep=0., enepx=0., ret_enep = 0.,tun_enep = 0.;
 
   /* Energy corresponding to the pseudo fermion part(s) */
-  FILE * datafile=NULL, * ret_check_file=NULL;
+  FILE * datafile=NULL, * ret_check_file=NULL,* tune_check_file=NULL;
   hamiltonian_field_t hf;
   paramsXlfInfo *xlfInfo;
 
@@ -125,12 +126,20 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
 #endif
 
   /* heatbath for all monomials */
+  ns=0;
   for(i = 0; i < Integrator.no_timescales; i++) {
     for(j = 0; j < Integrator.no_mnls_per_ts[i]; j++) {
       monomial_list[ Integrator.mnls_per_ts[i][j] ].hbfunction(Integrator.mnls_per_ts[i][j], &hf);
+		ns++;
     }
   }
 
+  if (tune_check_flag)
+  {
+	  adh=malloc(ns*sizeof(double));
+	  tuna_dh=malloc(ns*sizeof(double));
+  }
+  
   if(Integrator.monitor_forces) monitor_forces(&hf);
   /* initialize the momenta  */
   enep = random_su3adj_field(reproduce_randomnumber_flag, hf.momenta);
@@ -147,9 +156,16 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
 
   /* compute the final energy contributions for all monomials */
   dh = 0.;
+  m=0;
   for(i = 0; i < Integrator.no_timescales; i++) {
     for(j = 0; j < Integrator.no_mnls_per_ts[i]; j++) {
-      dh += monomial_list[ Integrator.mnls_per_ts[i][j] ].accfunction(Integrator.mnls_per_ts[i][j], &hf);
+      tmp = monomial_list[ Integrator.mnls_per_ts[i][j] ].accfunction(Integrator.mnls_per_ts[i][j], &hf);
+		dh + =tmp;
+		if (tune_check_flag)
+		{
+			adh[m]=tmp;
+			m++;
+		}
     }
   }
 
@@ -310,6 +326,117 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
     }
   } /* end of reversibility check */
 
+  /* Tuning-procedure - repeating trajecotory with higher order integrator*/
+  
+    if(tune_check_flag) {
+    if(g_proc_id == 0) {
+      fprintf(stdout, "# Performing tuning.\n");
+    }
+    if(accept) {
+      /* save gauge file to disk before performing reversibility check */
+      xlfInfo = construct_paramsXlfInfo((*plaquette_energy)/(6.*VOLUME*g_nproc), traj_counter);
+      // Should write this to temporary file first, and then check
+      if(g_proc_id == 0 && g_debug_level > 0) {
+        fprintf(stdout, "# Writing gauge field to file %s.\n", tmp_filename);
+      }
+      if((iostatus = write_gauge_field( tmp_filename, 64, xlfInfo) != 0 )) {
+        /* Writing failed directly */
+        fprintf(stderr, "Error %d while writing gauge field to %s\nAborting...\n", iostatus, tmp_filename);
+        exit(-2);
+      }
+      /* There is double writing of the gauge field, also in hmc_tm.c in this case */
+      /* No reading back check needed here, as reading back is done further down */
+      if(g_proc_id == 0 && g_debug_level > 0) {
+        fprintf(stdout, "# Writing done.\n");
+      }
+      free(xlfInfo);
+    }
+
+    for (j=level;j<0;j++)
+    {
+#ifdef DDalphaAMG
+      MG_reset();
+#endif
+
+      g_sloppy_precision = 1;
+      /* set the higher order integrators */
+      init4tune_integrator(j);
+      integrator_set_fields(&hf);
+      /* reset the gaugefield to the beginning */
+#ifdef TM_USE_OMP
+#pragma omp parallel for private(w) private(v)
+#endif
+         for(int ix=0;ix<VOLUME;ix++) {
+            for(int mu=0;mu<4;mu++){
+            v=&hf.gaugefield[ix][mu];
+            w=&gauge_tmp[ix][mu];
+            _su3_assign(*v,*w);
+            }
+         }
+      
+      Integrator.integrate[Integrator.no_timescales-1](-Integrator.tau, 
+                           Integrator.no_timescales-1, 1, -Integrator.tau);
+      g_sloppy_precision = 0;
+
+      /*   compute the energy contributions from the pseudo-fermions  */
+      tun_dh = 0.;
+		m=0;
+      for(i = 0; i < Integrator.no_timescales; i++) {
+         for(j = 0; j < Integrator.no_mnls_per_ts[i]; j++) {
+         
+			tmp= monomial_list[ Integrator.mnls_per_ts[i][j] ].accfunction(Integrator.mnls_per_ts[i][j], &hf);
+			tun_dh +=tmp;
+			tuna_dh[m]=tmp;
+			m++;
+         }
+      }
+      
+      
+      tun_enep = moment_energy(hf.momenta);
+      /* Compute the energy difference */
+      tun_dh += tun_enep - enep ;
+
+		
+      /* Output */
+      if(g_proc_id == 0) {
+         ret_check_file = fopen("tune_check.data","a");
+         fprintf(ret_check_file,"%08d dh(%d) = %1.16e dh(%d)-dh(L) = %1.16e ", traj_counter,level,level
+               tun_dh, tun_dh-dh);
+			for (m=0;m<ns;m++)
+				fprintf(ret_check_file," %1.16e",tuna_dh[m]-adh[m]);
+			fprintf(ret_check_file," %1.16e\n",tun_enep - enep);
+         fclose(ret_check_file);
+      }
+    }
+    
+    /* reset old integrator structure */
+    init_integrator();
+    integrator_set_fields(&hf);
+    
+    if(accept) {
+      /* Read back gauge field
+         FIXME unlike in hmc_tm we abort immediately if there is a failure */
+      if(g_proc_id == 0 && g_debug_level > 0) {
+        fprintf(stdout, "# Trying to read gauge field from file %s.\n", tmp_filename);
+      }
+
+      if((iostatus = read_gauge_field(tmp_filename,g_gauge_field) != 0)) {
+        fprintf(stderr, "Error %d while reading gauge field from %s\nAborting...\n", iostatus, tmp_filename);
+        exit(-2);
+      }
+      if(g_proc_id == 0 && g_debug_level > 0) {
+        fprintf(stdout, "# Reading done.\n");
+      }
+    }
+    if(g_proc_id == 0) {
+      fprintf(stdout, "# Tuning check done.\n");
+    }
+    
+    free(adh);
+    free(tuna_dh);
+    
+  } /* end of tuning check */
+  
   if(accept) {
     *plaquette_energy = new_plaquette_energy;
     *rectangle_energy = new_rectangle_energy;

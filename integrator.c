@@ -250,6 +250,106 @@ int init_integrator() {
   return(0);
 }
 
+/* function to initialise the integrator, to be called once at the beginning */
+
+int init4tune_integrator(int level) {
+  int i, ts;
+  Integrator.hf.gaugefield = (su3 **) NULL;
+  Integrator.hf.momenta = (su3adj **) NULL;
+  Integrator.hf.derivative = (su3adj **) NULL;
+  for(i = 0; i < 10; i++) {
+    Integrator.no_mnls_per_ts[i] = 0;
+  }
+  if(Integrator.type[Integrator.no_timescales-1] == MN2p) {
+    for(i = Integrator.no_timescales-1; i > level; i--) {
+      Integrator.integrate[i] = &integrate_2mnp;
+    }
+    for(i = level; i > 0; i--) {
+      Integrator.integrate[i] = &integrate_opt4fg;
+    }
+  }
+  else if (Integrator.type[Integrator.no_timescales-1] == OPT4FG) {
+    for(i = Integrator.no_timescales-1; i > level; i--) {
+      Integrator.integrate[i] = &integrate_opt4fg;
+    }
+    for(i = level; i > 0; i--) {
+      Integrator.integrate[i] = &integrate_opt6fg;
+    }
+  }
+  else if (Integrator.type[Integrator.no_timescales-1] == OPT6FG) {
+    for(i = Integrator.no_timescales-1; i > level; i--) {
+      Integrator.integrate[i] = &integrate_opt6fg;
+    }
+    for(i = level; i > 0; i--) {
+      Integrator.integrate[i] = &integrate_opt8fg;
+    }
+  }
+   else if (Integrator.type[Integrator.no_timescales-1] == OPT8FG) {
+      if(g_proc_id == 0) {
+         fprintf(stderr, "Warning: for OPT8FG scheme no higher order scheme available\n", i);
+      }
+  }
+  else {
+    for(i = 0; i < Integrator.no_timescales; i++) {
+      if(Integrator.type[i] == MN2 || Integrator.type[i] == MN2p) {
+         if (i>level)
+            Integrator.integrate[i] = &integrate_omf4;
+         else
+            Integrator.integrate[i] = &integrate_2mn;
+      }
+      else if(Integrator.type[i] == LEAPFROG) {
+         if (i>level)
+            Integrator.integrate[i] = &integrate_omf4;
+         else
+            Integrator.integrate[i] = &integrate_leap_frog;
+      }
+      else if(Integrator.type[i] == OMF4) {
+         if (i>level)
+            Integrator.integrate[i] = &integrate_omf6fg;
+         else
+            Integrator.integrate[i] = &integrate_omf4;
+      }
+      else if(Integrator.type[i] == MN2FG || Integrator.type[i] == OPT4FG) {
+         if (i>level)
+            Integrator.integrate[i] = &integrate_2mnfg;
+         else
+            Integrator.integrate[i] = &integrate_omf6fg;
+      }
+      else if(Integrator.type[i] == OMF6FG || Integrator.type[i] == OPT6FG) {
+         if (i>level)
+            Integrator.integrate[i] = &integrate_omf8fg;
+         else
+            Integrator.integrate[i] = &integrate_omf6fg;
+      }
+      else if(Integrator.type[i] == OMF8FG || Integrator.type[i] == OPT8FG) {
+            if(g_proc_id == 0) {
+            fprintf(stderr, "Warning: for OMF8FG or OPT8FG scheme no higher order scheme available\n", i);
+         }
+      }
+
+    }
+  }
+
+  for(i = 0; i < no_monomials; i++) {
+    ts = monomial_list[i].timescale;
+    if(ts < Integrator.no_timescales && ts > -1) {
+      Integrator.mnls_per_ts[ ts ][ Integrator.no_mnls_per_ts[ts] ] = monomial_list[i].id;
+      Integrator.no_mnls_per_ts[ ts ]++;
+    }
+    else {
+      if(g_proc_id == 0) {
+	fprintf(stderr, "Warning: monomial %d is not on a valid timescale and will not be integrated\n", i);
+      }
+    }
+  }
+  for(i = 0; i < Integrator.no_timescales; i++) {
+    if(Integrator.no_mnls_per_ts[ i ] < 1) {
+      fprintf(stderr, "Error, no monomial on timescale %d!\nAborting...\n", i);
+      exit(-1);
+    }
+  }
+  return(0);
+}
 /* function to set the gauge and momenta fields for the integration */
 
 void integrator_set_fields(hamiltonian_field_t * hf) {
