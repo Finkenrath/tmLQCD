@@ -34,6 +34,7 @@
 #include "integrator.h"
 
 integrator Integrator;
+int int_type_tmp[10];
 
 static const double fg_chi = 0.0138888888888889;
 static const double omf4_rho = 0.2539785108410595;
@@ -254,76 +255,112 @@ int init_integrator() {
 
 int init4tune_integrator(int level) {
   int i, ts;
-  Integrator.hf.gaugefield = (su3 **) NULL;
-  Integrator.hf.momenta = (su3adj **) NULL;
-  Integrator.hf.derivative = (su3adj **) NULL;
+ 
+  for (i= 0 ; i<Integrator.no_timescales; i++)
+	  int_type_tmp[i]=Integrator.type[i];
+  
   for(i = 0; i < 10; i++) {
     Integrator.no_mnls_per_ts[i] = 0;
   }
   if(Integrator.type[Integrator.no_timescales-1] == MN2p) {
-    for(i = Integrator.no_timescales-1; i > level; i--) {
+    for(i = Integrator.no_timescales-1; i > level-1; i--) {
       Integrator.integrate[i] = &integrate_2mnp;
+		Integrator.type[i] = MN2p;
     }
-    for(i = level; i > 0; i--) {
+    for(i = level; i > -1; i--) {
       Integrator.integrate[i] = &integrate_opt4fg;
+		Integrator.type[i] = OPT4FG;
     }
   }
   else if (Integrator.type[Integrator.no_timescales-1] == OPT4FG) {
-    for(i = Integrator.no_timescales-1; i > level; i--) {
+    for(i = Integrator.no_timescales-1; i > level-1; i--) {
       Integrator.integrate[i] = &integrate_opt4fg;
+		Integrator.type[i] = OPT4FG;
     }
-    for(i = level; i > 0; i--) {
+    for(i = level; i > -1; i--) {
       Integrator.integrate[i] = &integrate_opt6fg;
+		Integrator.type[i] = OPT6FG;
     }
   }
   else if (Integrator.type[Integrator.no_timescales-1] == OPT6FG) {
-    for(i = Integrator.no_timescales-1; i > level; i--) {
+    for(i = Integrator.no_timescales-1; i > level-1; i--) {
       Integrator.integrate[i] = &integrate_opt6fg;
+		Integrator.type[i] = OPT6FG;
     }
-    for(i = level; i > 0; i--) {
+    for(i = level; i > -1; i--) {
       Integrator.integrate[i] = &integrate_opt8fg;
+		Integrator.type[i] = OPT8FG;
     }
   }
    else if (Integrator.type[Integrator.no_timescales-1] == OPT8FG) {
       if(g_proc_id == 0) {
-         fprintf(stderr, "Warning: for OPT8FG scheme no higher order scheme available\n", i);
+         fprintf(stderr, "Warning: for OPT8FG scheme no higher order scheme available\n");
       }
   }
   else {
     for(i = 0; i < Integrator.no_timescales; i++) {
       if(Integrator.type[i] == MN2 || Integrator.type[i] == MN2p) {
-         if (i>level)
+         if (i<level)
+			{
             Integrator.integrate[i] = &integrate_omf4;
+				Integrator.type[i] = OMF4;
+			}
          else
+			{
             Integrator.integrate[i] = &integrate_2mn;
+				Integrator.type[i] = MN2;
+			}
       }
       else if(Integrator.type[i] == LEAPFROG) {
-         if (i>level)
+         if (i<level){
             Integrator.integrate[i] = &integrate_omf4;
+				Integrator.type[i] = OMF4;
+			}
          else
+			{
             Integrator.integrate[i] = &integrate_leap_frog;
+				Integrator.type[i] = LEAPFROG;
+			}
       }
       else if(Integrator.type[i] == OMF4) {
-         if (i>level)
-            Integrator.integrate[i] = &integrate_omf6fg;
+         if (i<level)
+			{
+            Integrator.integrate[i] = &integrate_omf8fg;
+				Integrator.type[i] = OMF8FG;
+			}
          else
+			{
             Integrator.integrate[i] = &integrate_omf4;
+				Integrator.type[i] = OMF4;
+			}
       }
       else if(Integrator.type[i] == MN2FG || Integrator.type[i] == OPT4FG) {
-         if (i>level)
-            Integrator.integrate[i] = &integrate_2mnfg;
+         if (i<level)
+			{
+            Integrator.integrate[i] = &integrate_omf8fg;
+				Integrator.type[i] = OMF8FG;
+			}
          else
-            Integrator.integrate[i] = &integrate_omf6fg;
+			{
+            Integrator.integrate[i] = &integrate_2mnfg;
+				Integrator.type[i] = MN2FG;
+			}
       }
       else if(Integrator.type[i] == OMF6FG || Integrator.type[i] == OPT6FG) {
-         if (i>level)
+         if (i<level)
+			{
             Integrator.integrate[i] = &integrate_omf8fg;
+				Integrator.type[i] = OMF8FG;
+			}
          else
+			{
             Integrator.integrate[i] = &integrate_omf6fg;
+				Integrator.type[i] = OMF6FG;
+			}
       }
       else if(Integrator.type[i] == OMF8FG || Integrator.type[i] == OPT8FG) {
             if(g_proc_id == 0) {
-            fprintf(stderr, "Warning: for OMF8FG or OPT8FG scheme no higher order scheme available\n", i);
+            fprintf(stderr, "Warning: for OMF8FG or OPT8FG scheme no higher order scheme available\n");
          }
       }
 
@@ -350,6 +387,14 @@ int init4tune_integrator(int level) {
   }
   return(0);
 }
+
+void reset4tune_integrator(void) {
+	int i;
+	for (i= 0 ; i<Integrator.no_timescales; i++)
+	  Integrator.type[i]=int_type_tmp[i];
+}
+	
+	
 /* function to set the gauge and momenta fields for the integration */
 
 void integrator_set_fields(hamiltonian_field_t * hf) {
@@ -374,8 +419,6 @@ void integrate_omf8fg(const double tau, const int S, const int halfstep, const d
   int k;
   integrator * itgr = &Integrator;
   double eps,eps2;
-  double oneminus2theta = 0.5*(1.-2.*omf6_theta);
-  double oneminus2lambdanu = (1.-2.*(omf6_lamb+omf6_nu));
   
   if(S == itgr->no_timescales-1) {
     dohalfstep(tau, S);

@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with tmLQCD.  If not, see <http://www.gnu.org/licenses/>.
  ***********************************************************************/
-#ifndef _INIT_MOMENT_FIELD_H
-#define _INIT_MOMENT_FIELD_H
+#ifndef _INIT_MOMENT_FIELD_TMP_H
+#define _INIT_MOMENT_FIELD_TMP_H
 
 int init_moment_field_tmp(const int V);
 void free_moment_field_tmp();

@@ -55,6 +55,7 @@
 #include "xchange/xchange.h"
 #include "measure_rectangles.h"
 #include "init/init_gauge_tmp.h"
+#include "init/init_gauge_tmp.h"
 #include "monomial/monomial.h"
 #include "integrator.h"
 #include "hamiltonian_field.h"
@@ -71,7 +72,7 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
               const int traj_counter) {
 
   su3 *v, *w;
-  su3_adj *vad, *wad;
+  su3adj *vad, *wad;
   int accept, i=0, j=0, iostatus=0,k1,m,ns;
 
   double yy[1];
@@ -134,12 +135,19 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
 		ns++;
     }
   }
-
-  if (tune_check_flag)
+  
+  if(Integrator.monitor_forces) monitor_forces(&hf);
+  /* initialize the momenta  */
+  enep = random_su3adj_field(reproduce_randomnumber_flag, hf.momenta);
+  
+   if (tune_check_flag)
   {
 	  adh=malloc(ns*sizeof(double));
 	  tuna_dh=malloc(ns*sizeof(double));
 	  
+#ifdef TM_USE_OMP
+#pragma omp parallel for private(wad,vad)
+#endif	  
 	  for(int ix=0;ix<VOLUME;ix++) {
 			for(int mu=0;mu<4;mu++){
 			
@@ -149,10 +157,6 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
 			}
 		}
   }
-  
-  if(Integrator.monitor_forces) monitor_forces(&hf);
-  /* initialize the momenta  */
-  enep = random_su3adj_field(reproduce_randomnumber_flag, hf.momenta);
   
   g_sloppy_precision = 1;
 
@@ -362,7 +366,7 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
       free(xlfInfo);
     }
 
-    for (k1=Integrator.no_timescales;k1<0;k1--)
+    for (k1=Integrator.no_timescales;k1>0;k1--)
     {
 #ifdef DDalphaAMG
       MG_reset();
@@ -371,10 +375,10 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
       g_sloppy_precision = 1;
       /* set the higher order integrators */
       init4tune_integrator(k1);
-      integrator_set_fields(&hf);
-      /* reset the gaugefield to the beginning */
+      /*integrator_set_fields(&hf);
+       reset the gaugefield to the beginning */
 #ifdef TM_USE_OMP
-#pragma omp parallel for private(w) private(v)
+#pragma omp parallel for private(w) private(v) private(vad) private(wad)
 #endif
 		for(int ix=0;ix<VOLUME;ix++) {
 			for(int mu=0;mu<4;mu++){
@@ -387,10 +391,26 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
 			_su3adj_assign(*vad,*wad);
 			}
 		}
-      
+#ifdef DDalphaAMG
+		MG_reset();
+#endif
+	
+		hf.update_gauge_copy = 1;
+		g_update_gauge_copy = 1;
+		g_update_gauge_copy_32 = 1;  
+#ifdef TM_USE_MPI
+		xchange_gauge(hf.gaugefield);
+#endif
+	
+		MPI_Barrier(MPI_COMM_WORLD);
+		/*Convert to a 32 bit gauge field, after xchange*/
+		convert_32_gauge_field(g_gauge_field_32, hf.gaugefield, VOLUMEPLUSRAND + g_dbw2rand); 
+		init_sw_fields();
+		
       Integrator.integrate[Integrator.no_timescales-1](Integrator.tau, 
                            Integrator.no_timescales-1, 1, Integrator.tau);
       g_sloppy_precision = 0;
+		MPI_Barrier(MPI_COMM_WORLD);
 
       /*   compute the energy contributions from the pseudo-fermions  */
       tun_dh = 0.;
@@ -410,17 +430,18 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
       /* Compute the energy difference */
       tun_dh += tun_enep - enep ;
 
-		
       /* Output */
       if(g_proc_id == 0) {
          tune_check_file = fopen("tune_check.data","a");
-         fprintf(ret_check_file,"%08d dh(%d) = %1.16e dh(%d)-dh(L) = %1.16e ", traj_counter,k1,k1,
-               tun_dh, tun_dh-dh);
+         fprintf(tune_check_file,"%08d dh(%d) = %1.16e dh(%d)-dh(L) = %1.16e ", traj_counter,k1,
+               tun_dh,k1, tun_dh-dh);
 			for (m=0;m<ns;m++)
 				fprintf(tune_check_file," %1.16e",tuna_dh[m]-adh[m]);
-			fprintf(tune_check_file," %1.16e\n",tun_enep - enep);
+			fprintf(tune_check_file," %1.16e\n",tun_enep - enepx);
          fclose(tune_check_file);
       }
+      reset4tune_integrator();
+      
     }
     
     /* reset old integrator structure */

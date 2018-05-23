@@ -224,7 +224,7 @@ int main(int argc,char *argv[]) {
   {
 	j = init_moment_field_tmp(VOLUME);
 	if (j != 0) {
-		fprintf(stderr, "Not enough memory for moment fields! Aborting...\n");
+		fprintf(stderr, "Not enough memory for tmp moment fields! Aborting...\n");
 		exit(0);
 		}
   }

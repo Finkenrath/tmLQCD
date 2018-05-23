@@ -32,6 +32,7 @@
 #  include "init/init_jacobi_field.h"
 #endif
 #include "init/init_moment_field.h"
+#include "init/init_moment_field_tmp.h"
 #include "init/init_spinor_field.h"
 #include "init/init_stout_smear_vars.h"
 #ifdef TM_USE_OMP
