@@ -114,6 +114,15 @@ typedef struct
 (r).d7-=(a).d7; \
 (r).d8-=(a).d8; 
 
+#define _su3adj_assign(a,b) \
+(a).d1=(b).d1; \
+(a).d2=(b).d2; \
+(a).d3=(b).d3; \
+(a).d4=(b).d4; \
+(a).d5=(b).d5; \
+(a).d6=(b).d6; \
+(a).d7=(b).d7; \
+(a).d8=(b).d8; 
 
 #define _trace_lambda_add_assign(r,a) \
 (r).d1 += (-cimag((a).c10)-cimag((a).c01)); \

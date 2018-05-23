@@ -190,6 +190,7 @@ EXTERN su3_32 ** g_gauge_field_copy_32;
 EXTERN su3 ** g_tempgauge_field;
 
 EXTERN su3adj ** moment;
+EXTERN su3adj ** moment_tmp;
 EXTERN su3adj ** df0;
 EXTERN su3adj ** ddummy;
 

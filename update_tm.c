@@ -1,4 +1,4 @@
-make/***********************************************************************
+/***********************************************************************
  *
  * Copyright (C) 2002,2003,2004,2005,2006,2007,2008 Carsten Urbach
  *
@@ -71,7 +71,8 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
               const int traj_counter) {
 
   su3 *v, *w;
-  int accept, i=0, j=0, iostatus=0,m,ns;
+  su3_adj *vad, *wad;
+  int accept, i=0, j=0, iostatus=0,k1,m,ns;
 
   double yy[1];
   double dh, expmdh, ret_dh=0., ret_gauge_diff=0., tmp;
@@ -138,6 +139,15 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
   {
 	  adh=malloc(ns*sizeof(double));
 	  tuna_dh=malloc(ns*sizeof(double));
+	  
+	  for(int ix=0;ix<VOLUME;ix++) {
+			for(int mu=0;mu<4;mu++){
+			
+			vad=&hf.momenta[ix][mu];
+			wad=&moment_tmp[ix][mu];
+			_su3adj_assign(*wad,*vad);
+			}
+		}
   }
   
   if(Integrator.monitor_forces) monitor_forces(&hf);
@@ -160,7 +170,7 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
   for(i = 0; i < Integrator.no_timescales; i++) {
     for(j = 0; j < Integrator.no_mnls_per_ts[i]; j++) {
       tmp = monomial_list[ Integrator.mnls_per_ts[i][j] ].accfunction(Integrator.mnls_per_ts[i][j], &hf);
-		dh + =tmp;
+		dh +=tmp;
 		if (tune_check_flag)
 		{
 			adh[m]=tmp;
@@ -352,7 +362,7 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
       free(xlfInfo);
     }
 
-    for (j=level;j<0;j++)
+    for (k1=Integrator.no_timescales;k1<0;k1--)
     {
 #ifdef DDalphaAMG
       MG_reset();
@@ -360,22 +370,26 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
 
       g_sloppy_precision = 1;
       /* set the higher order integrators */
-      init4tune_integrator(j);
+      init4tune_integrator(k1);
       integrator_set_fields(&hf);
       /* reset the gaugefield to the beginning */
 #ifdef TM_USE_OMP
 #pragma omp parallel for private(w) private(v)
 #endif
-         for(int ix=0;ix<VOLUME;ix++) {
-            for(int mu=0;mu<4;mu++){
-            v=&hf.gaugefield[ix][mu];
-            w=&gauge_tmp[ix][mu];
-            _su3_assign(*v,*w);
-            }
-         }
+		for(int ix=0;ix<VOLUME;ix++) {
+			for(int mu=0;mu<4;mu++){
+			v=&hf.gaugefield[ix][mu];
+			w=&gauge_tmp[ix][mu];
+			_su3_assign(*v,*w);
+			
+			vad=&hf.momenta[ix][mu];
+			wad=&moment_tmp[ix][mu];
+			_su3adj_assign(*vad,*wad);
+			}
+		}
       
-      Integrator.integrate[Integrator.no_timescales-1](-Integrator.tau, 
-                           Integrator.no_timescales-1, 1, -Integrator.tau);
+      Integrator.integrate[Integrator.no_timescales-1](Integrator.tau, 
+                           Integrator.no_timescales-1, 1, Integrator.tau);
       g_sloppy_precision = 0;
 
       /*   compute the energy contributions from the pseudo-fermions  */
@@ -385,7 +399,7 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
          for(j = 0; j < Integrator.no_mnls_per_ts[i]; j++) {
          
 			tmp= monomial_list[ Integrator.mnls_per_ts[i][j] ].accfunction(Integrator.mnls_per_ts[i][j], &hf);
-			tun_dh +=tmp;
+			tun_dh+=tmp;
 			tuna_dh[m]=tmp;
 			m++;
          }
@@ -399,13 +413,13 @@ int update_tm(double *plaquette_energy, double *rectangle_energy,
 		
       /* Output */
       if(g_proc_id == 0) {
-         ret_check_file = fopen("tune_check.data","a");
-         fprintf(ret_check_file,"%08d dh(%d) = %1.16e dh(%d)-dh(L) = %1.16e ", traj_counter,level,level
+         tune_check_file = fopen("tune_check.data","a");
+         fprintf(ret_check_file,"%08d dh(%d) = %1.16e dh(%d)-dh(L) = %1.16e ", traj_counter,k1,k1,
                tun_dh, tun_dh-dh);
 			for (m=0;m<ns;m++)
-				fprintf(ret_check_file," %1.16e",tuna_dh[m]-adh[m]);
-			fprintf(ret_check_file," %1.16e\n",tun_enep - enep);
-         fclose(ret_check_file);
+				fprintf(tune_check_file," %1.16e",tuna_dh[m]-adh[m]);
+			fprintf(tune_check_file," %1.16e\n",tun_enep - enep);
+         fclose(tune_check_file);
       }
     }
     

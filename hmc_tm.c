@@ -219,6 +219,15 @@ int main(int argc,char *argv[]) {
     fprintf(stderr, "Not enough memory for moment fields! Aborting...\n");
     exit(0);
   }
+  
+  if(tune_check_flag)
+  {
+	j = init_moment_field_tmp(VOLUME);
+	if (j != 0) {
+		fprintf(stderr, "Not enough memory for moment fields! Aborting...\n");
+		exit(0);
+		}
+  }
 
   if(g_running_phmc) {
     j = init_bispinor_field(VOLUME/2, NO_OF_BISPINORFIELDS);
