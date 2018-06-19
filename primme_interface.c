@@ -222,15 +222,15 @@ void primme_tm_finalize(void) {
 	primme_free(&primme_tm);
 }
 
-
-int primme_tm_ev(double *evals) {
+int primme_tm_ev(double *evals1) {
 	int i;
-	double *evecs,*rnorms;
+	double *evals,*rnorms;
+        complex double *evecs;
 	
-	/* Allocate space for converged Ritz values and residual norms 
-   evals = (double*)malloc(primme_tm.numEvals*sizeof(complex double));*/
-   evecs = (complex double*)malloc(primme_tm.nLocal*(primme_tm.numEvals)*sizeof(complex double));
-   rnorms = (double*)malloc(primme_tm.numEvals*sizeof(complex double));
+	/* Allocate space for converged Ritz values and residual norms */
+	evals = (double*)malloc(primme_tm.numEvals*sizeof(complex double));
+	evecs = (complex double*)malloc(primme_tm.nLocal*(primme_tm.numEvals)*sizeof(complex double));
+	rnorms = (double*)malloc(primme_tm.numEvals*sizeof(complex double));
 
    /* Call primme  */
    zprimme(evals, evecs, rnorms, &primme_tm);
@@ -241,11 +241,13 @@ int primme_tm_ev(double *evals) {
 				evals[i], rnorms[i]); 
 		}
 	}
+	(*evals1)=creal(*evals);
 	
-	/*free(evals);*/
+	free(evals);
 	free(evecs);
 	free(rnorms);
 }
+
 
 // /*
 // void Dnd_augmented(void *x, PRIMME_INT *ldx, void *y, PRIMME_INT *ldy, int *blockSize, primme_svds_params *primme_svds, int *err) {

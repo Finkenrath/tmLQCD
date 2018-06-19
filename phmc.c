@@ -226,11 +226,11 @@ void phmc_compute_ev(const int trajectory_counter,
 #ifdef PRIMME
   if (primme){
 	  no_eigenvalues = 1;
-	  primme_tm_init(1,no_eigenvalues,0,eigenvalue_precision); // set params to largest
+	  primme_tm_init(0,no_eigenvalues,0,eigenvalue_precision); // set params to smallest
 	  primme_tm_ev(&temp);
 	  primme_tm_reset();
-	  primme_tm_init(1,no_eigenvalues,1,eigenvalue_precision); // set params to largest
-	  primme_tm_ev(&temp);
+	  primme_tm_init(0,no_eigenvalues,1,eigenvalue_precision); // set params to largest
+	  primme_tm_ev(&temp2);
 	  primme_tm_finalize();
   }  
   else
