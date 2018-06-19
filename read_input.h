@@ -129,6 +129,8 @@ extern "C"
   extern int mg_blk[4];
   extern int mg_mixed_prec;
   extern int mg_setup_mu_set;
+  extern int mg_no_shifts;
+  extern double mg_mms_mass;
   extern double mg_setup_mu;
   extern double mg_cmu_factor;
   extern double mg_dtau_update;
@@ -136,6 +138,8 @@ extern "C"
   extern int mg_update_setup_iter;
   extern int mg_omp_num_threads;
 
+  extern int primme;
+  
   int read_input(char *);
   int reread_input(char *);
   

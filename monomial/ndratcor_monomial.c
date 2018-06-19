@@ -233,7 +233,6 @@ double ndratcor_acc(const int id, hamiltonian_field_t * const hf) {
     up1 = tup; dn1 = tdn;
   }
 
-
   etime = gettime();
   if(g_proc_id == 0) {
     if(g_debug_level > 1) {

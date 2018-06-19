@@ -1,8 +1,5 @@
 /***********************************************************************
- *
- *
- * Copyright (C) 2004 Andrea Shindler
- *               2009 Carsten Urbach
+ * Copyright (C) 2002,2003,2004,2005,2006,2007,2008 Carsten Urbach
  *
  * This file is part of tmLQCD.
  *
@@ -18,16 +15,12 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with tmLQCD.  If not, see <http://www.gnu.org/licenses/>.
- *
  ***********************************************************************/
 
-#ifndef _CG_MMS_TM_H
-#define _CG_MMS_TM_H
+#ifndef _CONVERT_EVEN_TO_LEXIC_H
+#define _CONVERT_EVEN_TO_LEXIC_H
 
-#include "solver.h"
-#include "matrix_mult_typedef.h"
-#include "su3.h"
-
-int cg_mms_tm(spinor ** const P,spinor * const Q, solver_params_t * const params);
+void convert_even_to_lexic(spinor * const P, spinor * const r);
+void convert_lexic_to_even(spinor * const r, spinor * const P);
 
 #endif

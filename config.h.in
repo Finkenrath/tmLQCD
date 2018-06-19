@@ -212,5 +212,8 @@
 /* Structure of Array length to use with QPhiX */
 #undef QPHIX_SOALEN
 
+/* Using PRIMME */
+#undef PRIMME
+
 #endif
 

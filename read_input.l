@@ -192,6 +192,8 @@ static inline void rmQuotes(char *str){
 
   int use_preconditioning;
 
+  int primme;
+
   /* macro control over read_input.l is poor. In order to support compilation without
    * a given external library, we need to have these declared here as a dummy.
    * Note that no parameters will actually be passed, the input file reader will
@@ -335,7 +337,6 @@ static inline void rmQuotes(char *str){
 %x MCSTR
 %x MSOLVER
 %x NDMSOLVER
-%x RATMSOLVER
 %x GTYPE
 
 %x COMMENT
@@ -743,6 +744,17 @@ static inline void rmQuotes(char *str){
     mg_omp_num_threads=a;
     if(myverbose) printf("  MG_omp_num_threads set to %d line %d operator %d\n", mg_omp_num_threads, line_of_file, current_operator);
   }
+  {SPC}*MGNumberOfShifts{EQL}{DIGIT}+ {
+    sscanf(yytext, " %[a-zA-Z] = %d", name, &a);
+    mg_no_shifts=a;
+    mg_mms_mass=0;
+    if(myverbose) printf("  MG_Num_of_shifts set to %d line %d operator %d\n", mg_omp_num_threads, line_of_file, current_operator);
+  }
+  {SPC}*MGMMSMass{EQL}{FLT}+ {
+    sscanf(yytext, " %[a-zA-Z] = %lf", name, &c);
+    mg_mms_mass=c;
+    if(myverbose) printf("  MG_MMS_Mass set to %f line %d operator %d\n", mg_mms_mass, line_of_file, current_operator);
+  }
   EndDDalphaAMG{SPC}* {
   if(myverbose) printf("DDalphaAMG parsed in line %d\n\n", line_of_file);
   BEGIN(0);
@@ -1131,6 +1143,16 @@ static inline void rmQuotes(char *str){
     if(myverbose) printf("  Solver set to RGMixedCG line %d operator %d\n", line_of_file, current_operator);
     BEGIN(name_caller);
   }
+  DDalphaAMG {
+#ifdef DDalphaAMG
+    optr->solver = MG;
+    if(myverbose) printf("  Solver set to DDalphaAMG line %d operator %d\n", line_of_file, current_operator);
+    BEGIN(name_caller);
+#else
+    printf("ERROR line %d operator %d: DDalphaAMG library not included\n", line_of_file, current_operator);
+    exit(1);
+#endif
+  }
   dummyhermtest {
     optr->solver=DUMMYHERMTEST;
     if(myverbose) printf("  Solver set to DummyHermTest line %d operator %d\n", line_of_file, current_operator);
@@ -1272,9 +1294,14 @@ static inline void rmQuotes(char *str){
     BEGIN(name_caller);
   }
   DDalphaAMG {
+#ifdef DDalphaAMG
     optr->solver = MG;
     if(myverbose) printf("  Solver set to DDalphaAMG line %d operator %d\n", line_of_file, current_operator);
     BEGIN(name_caller);
+#else
+    printf("ERROR line %d operator %d: DDalphaAMG library not included\n", line_of_file, current_operator);
+    exit(1);
+#endif
   }
 }
 
@@ -1678,14 +1705,14 @@ static inline void rmQuotes(char *str){
   }
 }
 
-<RATMONOMIAL,CLRATMONOMIAL,RATCORMONOMIAL,CLRATCORMONOMIAL>{
+<RATMONOMIAL,RATCORMONOMIAL,CLRATMONOMIAL,CLRATCORMONOMIAL>{
   {SPC}*Solver{EQL} {
-    solver_caller=YY_START;
-    BEGIN(RATMSOLVER);
+   solver_caller=YY_START;
+   BEGIN(MSOLVER);
   }
 }
 
-<DETMONOMIAL,POLYMONOMIAL,CLDETMONOMIAL,CLDETRATMONOMIAL,CLDETRATRWMONOMIAL>{
+<DETMONOMIAL,POLYMONOMIAL,CLDETMONOMIAL,CLDETRATMONOMIAL,CLDETRATRWMONOMIAL,RATMONOMIAL,RATCORMONOMIAL,CLRATMONOMIAL,CLRATCORMONOMIAL>{
   {SPC}*2KappaMu{EQL}{FLT} {
     sscanf(yytext, " %[2a-zA-Z] = %lf", name, &c);
     mnl->mu = c;
@@ -1790,6 +1817,18 @@ static inline void rmQuotes(char *str){
     sscanf(yytext, " %[a-zA-Z] = %d", name, &a);
     mnl->rec_ev = a;
     if(myverbose!=0) printf("  Frequency for computing EV's set to %d in line %d monomial %d\n", mnl->rec_ev, line_of_file, current_monomial);
+  }
+  {SPC}*UsePrimmeEV{EQL}yes {
+    #ifdef PRIMME
+    primme = 1;
+    if(myverbose!=0) printf("  UsePrimmeEV is set to yes line %d monomial %d\n", line_of_file, current_monomial);
+    #else  
+    if(myverbose!=0) printf("  UsePrimmeEV is set to yes but not available line %d monomial %d\n", line_of_file, current_monomial);
+    #endif
+  }
+  {SPC}*UsePrimmeEV{EQL}no {
+    primme = 0;
+    if(myverbose!=0) printf("  UsePrimmeEV is set to no line %d monomial %d\n", line_of_file, current_monomial);
   }
 }
 <NDPOLYMONOMIAL,CLPOLYMONOMIAL>{
@@ -1901,15 +1940,25 @@ static inline void rmQuotes(char *str){
     mnl->solver = BICGSTAB;
     BEGIN(solver_caller);
   }
+  cgmms {
+    if(myverbose) printf("  Solver set to \"%s\" line %d monomial %d\n", yytext, line_of_file, current_monomial);
+    mnl->solver = CGMMS;
+    BEGIN(solver_caller);
+  }
   mixedbicgstab {
     if(myverbose) printf("  Solver set to \"%s\" line %d monomial %d\n", yytext, line_of_file, current_monomial);
     mnl->solver=MIXEDBICGSTAB;
     BEGIN(name_caller);
   }
   DDalphaAMG {
+#ifdef DDalphaAMG
     if(myverbose) printf("  Solver set to DDalphaAMG line %d operator %d\n", line_of_file, current_operator);
     mnl->solver = MG;
     BEGIN(solver_caller);
+#else
+    printf("ERROR line %d operator %d: DDalphaAMG library not included\n", line_of_file, current_operator);
+    exit(1);
+#endif
   }
 }
 
@@ -1917,6 +1966,11 @@ static inline void rmQuotes(char *str){
   cgmmsnd {
     if(myverbose) printf("  Solver set to \"%s\" line %d monomial %d\n", yytext, line_of_file, current_monomial);
     mnl->solver = CGMMSND;
+    BEGIN(solver_caller);
+  }
+  rgmixedcg {
+    if(myverbose) printf("  Solver set to \"%s\" line %d monomial %d\n", yytext, line_of_file, current_monomial);
+    mnl->solver = RGMIXEDCG;
     BEGIN(solver_caller);
   }
   mixedCGmmsnd {
@@ -1929,13 +1983,15 @@ static inline void rmQuotes(char *str){
     mnl->solver = 14;
     BEGIN(solver_caller);
   }
-}
-
-<RATMSOLVER>{
-  cgmms {
-    if( myverbose ) printf("  Solver set to \"%s\" line %d monomial %d\n", yytext, line_of_file, current_monomial);
-    mnl->solver = CGMMS;
+  DDalphaAMG {
+#ifdef DDalphaAMG
+    if(myverbose) printf("  Solver set to DDalphaAMG line %d operator %d\n", line_of_file, current_operator);
+    mnl->solver = MG;
     BEGIN(solver_caller);
+#else
+    printf("ERROR line %d operator %d: DDalphaAMG library not included\n", line_of_file, current_operator);
+    exit(1);
+#endif
   }
 }
 
@@ -2796,6 +2852,7 @@ int read_input(char * conf_file){
   g_mu1 = _default_g_mu1;
   g_mu2 = _default_g_mu2;
   g_mu3 = _default_g_mu3;
+  g_shift = _default_g_shift;
   g_dbw2rand = 0;
   g_running_phmc = 0;
   g_beta = _default_g_beta;
@@ -2901,7 +2958,8 @@ int read_input(char * conf_file){
   subprocess_flag = _default_subprocess_flag;
 
   quda_input.fermionbc = TM_QUDA_THETABC;
-
+  primme = 0;
+  
   /* Put -1 in PropInfo.format to see if parse_config() will
   change the value. If not then set it to source_format_flag */
   PropInfo.format = -1;

@@ -195,7 +195,7 @@ EXTERN su3adj ** ddummy;
 
 EXTERN int count00,count01,count10,count11,count20,count21;
 EXTERN double g_kappa, g_c_sw, g_beta;
-EXTERN double g_mu, g_mu1, g_mu2, g_mu3;
+EXTERN double g_mu, g_mu1, g_mu2, g_mu3, g_shift;
 EXTERN double g_rgi_C0, g_rgi_C1;
 
 /* Parameters for non-degenrate case */
@@ -282,3 +282,14 @@ void fatal_error(char const *error, char const *function);
 
 #endif
 
+/*
+ * Comments: generic macro for swapping values or pointers.
+ * We use memcpy because is optimal when the amount to copy is known at compilation time. 
+ * "sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1" is a compile time check that the types are compatible.
+ */
+#define SWAP(x,y) do \ 
+{ unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
+  memcpy(swap_temp,&y,sizeof(x)); \
+  memcpy(&y,&x,       sizeof(x)); \
+  memcpy(&x,swap_temp,sizeof(x)); \
+} while(0)

@@ -38,7 +38,9 @@
 #include "monomial/monomial.h"
 #include "solver/matrix_mult_typedef_bi.h"
 #include "gettime.h"
-
+#ifdef PRIMME
+#include "primme_interface.h"
+#endif
 //                                          --> in  monomial
 double phmc_Cpol;                        // --> MDPolyLocNormConst
 double phmc_cheb_evmin, phmc_cheb_evmax; // --> EVMin, EVMax
@@ -221,13 +223,27 @@ void phmc_compute_ev(const int trajectory_counter,
     printf("# Computing eigenvalues for heavy doublet\n");
   }
 
+#ifdef PRIMME
+  if (primme){
+	  no_eigenvalues = 1;
+	  primme_tm_init(0,no_eigenvalues,0,eigenvalue_precision); // set params to smallest
+	  primme_tm_ev(&temp);
+	  primme_tm_reset();
+	  primme_tm_init(0,no_eigenvalues,1,eigenvalue_precision); // set params to largest
+	  primme_tm_ev(&temp2);
+	  primme_tm_finalize();
+  }  
+  else
+  {
+#endif
   no_eigenvalues = 1;
-
   temp = eigenvalues_bi(&no_eigenvalues, max_iter_ev, eigenvalue_precision, 0, Qsq);
-  
   no_eigenvalues = 1;
   temp2 = eigenvalues_bi(&no_eigenvalues, max_iter_ev, eigenvalue_precision, 1, Qsq);
-  
+#ifdef PRIMME
+  }
+#endif  
+
   if((g_proc_id == 0) && (g_debug_level > 1)) {
     printf("# %s: lowest eigenvalue end of trajectory %d = %e\n", 
 	   mnl->name, trajectory_counter, temp);
@@ -235,7 +251,7 @@ void phmc_compute_ev(const int trajectory_counter,
 	   mnl->name, trajectory_counter, temp2);
   }
   if(g_proc_id == 0) {
-    if(temp2 > 1.) {
+    if(temp2 > mnl->EVMax) {
       fprintf(stderr, "\nWarning: largest eigenvalue for monomial %s larger than upper bound!\n\n", mnl->name);
     }
     if(temp < mnl->EVMin) {
@@ -243,7 +259,7 @@ void phmc_compute_ev(const int trajectory_counter,
     }
     countfile = fopen(phmcfilename, "a");
     fprintf(countfile, "%.8d %1.5e %1.5e %1.5e %1.5e\n", 
-	    trajectory_counter, temp, temp2, mnl->EVMin, 1.);
+	    trajectory_counter, temp, temp2, mnl->EVMin, mnl->EVMax);
     fclose(countfile);
   }
   etime = gettime();
