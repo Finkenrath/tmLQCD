@@ -232,6 +232,12 @@ void integrate_opt6fg(const double tau, const int S, const int halfstep, const d
 /* OMF sixth order force gradient integration scheme */
 void integrate_omf6fg(const double tau, const int S, const int halfstep, const double tau2);
 /* optimal eigth order force gradient integration scheme in velocity version */
+void integrate_omf4fg(const double tau, const int S, const int halfstep, const double tau2);
+/* optimal eigth order force gradient integration scheme in velocity version */
+void integrate_omf4fg2(const double tau, const int S, const int halfstep, const double tau2);
+/* optimal eigth order force gradient integration scheme in velocity version */
+void integrate_omf6fg2(const double tau, const int S, const int halfstep, const double tau2);
+/* optimal eigth order force gradient integration scheme in velocity version */
 void integrate_opt8fg(const double tau, const int S, const int halfstep, const double tau2);
 /* OMF eigth order force gradient integration scheme */
 void integrate_omf8fg(const double tau, const int S, const int halfstep, const double tau2);
@@ -514,7 +520,7 @@ void integrate_omf4fg(const double tau, const int S, const int halfstep, const d
          update_momenta_fg(itgr->mnls_per_ts[0], eps , omf4fg_b[k], omf4fg_c[k] , itgr->no_mnls_per_ts[0], &itgr->hf);
       }
       update_gauge(omf4fg_a[4]*eps, &itgr->hf);
-      update_momenta_fg(itgr->mnls_per_ts[0], 2*eps, omf4fg_b[4], omf4fg_c[4] itgr->no_mnls_per_ts[0], &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[0], 2*eps, omf4fg_b[4], omf4fg_c[4], itgr->no_mnls_per_ts[0], &itgr->hf);
     }
     
    for (k=1;k<4;k++)
@@ -553,7 +559,7 @@ void integrate_omf4fg(const double tau, const int S, const int halfstep, const d
        itgr->integrate[S-1](omf4fg_a[4]*eps, S-1, halfstep, omf4fg_a[1]*eps2);
        
     if(halfstep != 1 && S != itgr->no_timescales-1) {
-      update_momenta_fg(itgr->mnls_per_ts[S], (eps+eps2), omf4fg_b[4],  omf4fg_c[4] itgr->no_mnls_per_ts[S], &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[S], (eps+eps2), omf4fg_b[4],  omf4fg_c[4], itgr->no_mnls_per_ts[S], &itgr->hf);
     }
   }
 
@@ -584,7 +590,7 @@ void integrate_omf4fg2(const double tau, const int S, const int halfstep, const 
          update_momenta_fg(itgr->mnls_per_ts[0], eps , omf4fg2_b[k], omf4fg2_c[k] , itgr->no_mnls_per_ts[0], &itgr->hf);
       }
       update_gauge(omf4fg2_a[5]*eps, &itgr->hf);
-      update_momenta_fg(itgr->mnls_per_ts[0], 2*eps, omf4fg2_b[5], omf4fg2_c[5] itgr->no_mnls_per_ts[0], &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[0], 2*eps, omf4fg2_b[5], omf4fg2_c[5], itgr->no_mnls_per_ts[0], &itgr->hf);
     }
     
    for (k=1;k<5;k++)
@@ -623,7 +629,7 @@ void integrate_omf4fg2(const double tau, const int S, const int halfstep, const 
        itgr->integrate[S-1](omf4fg2_a[5]*eps, S-1, halfstep, omf4fg2_a[1]*eps2);
        
     if(halfstep != 1 && S != itgr->no_timescales-1) {
-      update_momenta_fg(itgr->mnls_per_ts[S], (eps+eps2), omf4fg2_b[5],  omf4fg2_c[5] itgr->no_mnls_per_ts[S], &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[S], (eps+eps2), omf4fg2_b[5],  omf4fg2_c[5], itgr->no_mnls_per_ts[S], &itgr->hf);
     }
   }
 
@@ -654,7 +660,7 @@ void integrate_omf6fg2(const double tau, const int S, const int halfstep, const 
          update_momenta_fg(itgr->mnls_per_ts[0], eps , omf6fg2_b[k], omf6fg2_c[k] , itgr->no_mnls_per_ts[0], &itgr->hf);
       }
       update_gauge(omf6fg2_a[6]*eps, &itgr->hf);
-      update_momenta_fg(itgr->mnls_per_ts[0], 2*eps, omf6fg2_b[6], omf6fg2_c[6] itgr->no_mnls_per_ts[0], &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[0], 2*eps, omf6fg2_b[6], omf6fg2_c[6], itgr->no_mnls_per_ts[0], &itgr->hf);
     }
     
    for (k=1;k<6;k++)
@@ -693,7 +699,7 @@ void integrate_omf6fg2(const double tau, const int S, const int halfstep, const 
        itgr->integrate[S-1](omf6fg2_a[6]*eps, S-1, halfstep, omf6fg2_a[1]*eps2);
        
     if(halfstep != 1 && S != itgr->no_timescales-1) {
-      update_momenta_fg(itgr->mnls_per_ts[S], (eps+eps2), omf6fg2_b[6],  omf6fg2_c[6] itgr->no_mnls_per_ts[S], &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[S], (eps+eps2), omf6fg2_b[6],  omf6fg2_c[6], itgr->no_mnls_per_ts[S], &itgr->hf);
     }
   }
 
