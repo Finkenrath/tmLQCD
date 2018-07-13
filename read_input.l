@@ -2093,6 +2093,15 @@ static inline void rmQuotes(char *str){
     else if(strcmp(type, "OPT8FG")==0) {
       Integrator.type[a] = OPT8FG;
     }
+    else if(strcmp(type, "OMF4FG")==0) {
+      Integrator.type[a] = OMF4FG;
+    }
+    else if(strcmp(type, "OMF4FG2")==0) {
+      Integrator.type[a] = OMF4FG2;
+    }
+    else if(strcmp(type, "OMF6FG2")==0) {
+      Integrator.type[a] = OMF6FG2;
+    }
     else {
       fprintf(stderr, "Unknown integrator type %s in line %d\n", yytext, line_of_file);
       exit(1);

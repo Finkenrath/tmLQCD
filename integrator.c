@@ -47,6 +47,11 @@ static const double opt4_lamb  = 0.375; // 3/8
 static const double opt4_theta = 0.166666666666667; // 1/6
 static const double opt4_chi   = 0.00520833333333333333; //1/192
 
+/* Scheme C' of PHYSICAL REVIEW E 66, 026701 
+static const double opt4_lamb  = 0.2470939580390842; // 3/8
+static const double opt4_theta = 0.08935804763220157; // 1/6
+static const double opt4_chi   = 0.006938106540706989; //1/192*/
+
 /* Scheme G6 of PHYSICAL REVIEW E 66, 026701 */
 static const double opt6_rho   = 0.1097059723948682;
 static const double opt6_theta = 0.4140632267310831;
@@ -62,6 +67,72 @@ static const double omf6_lamb  = -0.14371472730265417; // - 5*theta/3*(theta-1)
 static const double omf6_xi    = -0.013965254224238837; //- 5*theta^2/144+theta/36-1/288
 static const double omf6_chi   = -0.039247029382345630; // 1/144-theta/36*(theta/2+1)
 
+/*OMF4FG */
+static const double omf4fg_a[4]={
+   0.0,
+   0.281398061166772,
+   0.437203877666456,
+   0.281398061166772
+};
+static const double omf4fg_b[4]={
+   0.087893686016807,
+   0.412106313983193,
+   0.412106313983193,
+   0.087893686016807
+};
+static const double omf4fg_c[4]={
+   0.0,
+   0.003061810122369770,
+   0.003061810122369770,
+   0.0
+};
+/*OMF4FG */
+static const double omf4fg2_a[5]={
+   0.000000000000000000,
+   0.192112527742946404,
+   0.307887472257053596,
+   0.307887472257053596, 
+   0.192112527742946404
+};
+static const double omf4fg2_b[5]={
+   0.058518726134556207, 
+   0.285216224068709112,
+   0.488086277997137996, 
+   0.285216224068709112,
+   0.058518726134556207
+};
+static const double omf4fg2_c[5]={
+   0.0004339598806816256,
+	0.0,
+   0.002427475259663050,
+	0.0,
+	0.0004339598806816256
+};
+/*OMF6FG2 */
+static const double omf6fg2_a[6]={
+   0.000000000000000000,
+   0.166738123347649092,
+   0.380038934430259601,
+   -0.093554115555817496, 
+   0.380038934430259601,
+   0.166738123347649092,
+};
+static const double omf6fg2_b[6]={
+   0.048001369933520957,
+   0.263395706993534984, 
+   0.188602923072944073,
+   0.188602923072944073,
+   0.263395706993534984,
+   0.048001369933520957 
+};
+static const double omf6fg2_c[6]={
+  -0.001709693171449844,
+  0.004668083730519805,
+  0.000000000000000000,
+  0.000000000000000000,
+  0.004668083730519805,
+  -0.001709693171449844 
+};
 /* OMF8FG Parameters */
 static const double omf8_a[12]={
    0.0,
@@ -106,7 +177,6 @@ static const double omf8_c[12]={
    0.0
 };
 /* OPT8FG Parameters */
-
 static const double opt8_a[12]={
    0.41009674738801111928784693005080,
    -0.34123345756052780489101697378499,
@@ -220,8 +290,17 @@ int init_integrator() {
       else if(Integrator.type[i] == MN2FG || Integrator.type[i] == OPT4FG) {
          Integrator.integrate[i] = &integrate_2mnfg;
       }
+      else if(Integrator.type[i] == OMF4FG) {
+         Integrator.integrate[i] = &integrate_omf4fg;
+      }
+      else if(Integrator.type[i] == OMF4FG2) {
+         Integrator.integrate[i] = &integrate_omf4fg2;
+      }
       else if(Integrator.type[i] == OMF6FG || Integrator.type[i] == OPT6FG) {
          Integrator.integrate[i] = &integrate_omf6fg;
+      }
+      else if(Integrator.type[i] == OMF6FG2) {
+         Integrator.integrate[i] = &integrate_omf6fg2;
       }
       else if(Integrator.type[i] == OMF8FG || Integrator.type[i] == OPT8FG) {
          Integrator.integrate[i] = &integrate_omf8fg;
@@ -411,6 +490,216 @@ void integrator_unset_fields() {
   Integrator.hf.gaugefield = (su3 **) NULL;
   Integrator.hf.momenta = (su3adj **) NULL;
   Integrator.hf.derivative = (su3adj **) NULL;
+  return;
+}
+
+void integrate_omf4fg(const double tau, const int S, const int halfstep, const double tau2){
+  int i,j=0;
+  int k;
+  integrator * itgr = &Integrator;
+  double eps,eps2;
+  
+  if(S == itgr->no_timescales-1) {
+    dohalfstep(tau, S);
+  }
+  eps  = tau/((double)itgr->n_int[S]);
+  eps2 = tau2/((double)itgr->n_int[S]);
+  
+  if(S == 0) {
+
+    for(j = 1; j < itgr->n_int[0]; j++) {
+      for (k=1;k<4;k++)
+      {
+         update_gauge(omf4fg_a[k]*eps, &itgr->hf);
+         update_momenta_fg(itgr->mnls_per_ts[0], eps , omf4fg_b[k], omf4fg_c[k] , itgr->no_mnls_per_ts[0], &itgr->hf);
+      }
+      update_gauge(omf4fg_a[4]*eps, &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[0], 2*eps, omf4fg_b[4], omf4fg_c[4] itgr->no_mnls_per_ts[0], &itgr->hf);
+    }
+    
+   for (k=1;k<4;k++)
+   {
+      update_gauge(omf4fg_a[k]*eps, &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[0], eps , omf4fg_b[k], omf4fg_c[k] , itgr->no_mnls_per_ts[0], &itgr->hf);
+   }
+   update_gauge(omf4fg_a[4]*eps, &itgr->hf);
+   
+   if(halfstep != 1) {
+      update_momenta_fg(itgr->mnls_per_ts[0], eps+eps2, omf4fg_b[4],  omf4fg_c[4], itgr->no_mnls_per_ts[0], &itgr->hf);
+    }
+  }
+  else {
+    for(i = 1; i < itgr->n_int[S]; i++){
+      for (k=1;k<4;k++)
+      {
+         itgr->integrate[S-1](omf4fg_a[k]*eps, S-1, 0, omf4fg_a[k+1]*eps);
+         update_momenta_fg(itgr->mnls_per_ts[S], eps , omf4fg_b[k], omf4fg_c[k] , itgr->no_mnls_per_ts[S], &itgr->hf);
+      }
+      itgr->integrate[S-1](omf4fg_a[4]*eps, S-1, 0, omf4fg_a[1]*eps);
+      update_momenta_fg(itgr->mnls_per_ts[S], 2*eps, omf4fg_b[4], omf4fg_c[4], itgr->no_mnls_per_ts[S], &itgr->hf);
+    }
+    
+   for (k=1;k<4;k++)
+   {
+      itgr->integrate[S-1](omf4fg_a[k]*eps, S-1, 0, omf4fg_a[k+1]*eps);
+      update_momenta_fg(itgr->mnls_per_ts[S], eps , omf4fg_b[k], omf4fg_c[k] , itgr->no_mnls_per_ts[S], &itgr->hf);
+   }
+   
+   if(S == itgr->no_timescales-1) 
+    {
+      itgr->integrate[S-1](omf4fg_a[4]*eps, S-1, 1, omf4fg_a[1]*eps);
+    }
+    else 
+       itgr->integrate[S-1](omf4fg_a[4]*eps, S-1, halfstep, omf4fg_a[1]*eps2);
+       
+    if(halfstep != 1 && S != itgr->no_timescales-1) {
+      update_momenta_fg(itgr->mnls_per_ts[S], (eps+eps2), omf4fg_b[4],  omf4fg_c[4] itgr->no_mnls_per_ts[S], &itgr->hf);
+    }
+  }
+
+  if(S == itgr->no_timescales-1) {
+    dohalfstep(tau, S);
+  }
+  return;
+}
+
+void integrate_omf4fg2(const double tau, const int S, const int halfstep, const double tau2){
+  int i,j=0;
+  int k;
+  integrator * itgr = &Integrator;
+  double eps,eps2;
+  
+  if(S == itgr->no_timescales-1) {
+    dohalfstep(tau, S);
+  }
+  eps  = tau/((double)itgr->n_int[S]);
+  eps2 = tau2/((double)itgr->n_int[S]);
+  
+  if(S == 0) {
+
+    for(j = 1; j < itgr->n_int[0]; j++) {
+      for (k=1;k<5;k++)
+      {
+         update_gauge(omf4fg2_a[k]*eps, &itgr->hf);
+         update_momenta_fg(itgr->mnls_per_ts[0], eps , omf4fg2_b[k], omf4fg2_c[k] , itgr->no_mnls_per_ts[0], &itgr->hf);
+      }
+      update_gauge(omf4fg2_a[5]*eps, &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[0], 2*eps, omf4fg2_b[5], omf4fg2_c[5] itgr->no_mnls_per_ts[0], &itgr->hf);
+    }
+    
+   for (k=1;k<5;k++)
+   {
+      update_gauge(omf4fg2_a[k]*eps, &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[0], eps , omf4fg2_b[k], omf4fg2_c[k] , itgr->no_mnls_per_ts[0], &itgr->hf);
+   }
+   update_gauge(omf4fg2_a[5]*eps, &itgr->hf);
+   
+   if(halfstep != 1) {
+      update_momenta_fg(itgr->mnls_per_ts[0], eps+eps2, omf4fg2_b[5],  omf4fg2_c[5], itgr->no_mnls_per_ts[0], &itgr->hf);
+    }
+  }
+  else {
+    for(i = 1; i < itgr->n_int[S]; i++){
+      for (k=1;k<5;k++)
+      {
+         itgr->integrate[S-1](omf4fg2_a[k]*eps, S-1, 0, omf4fg2_a[k+1]*eps);
+         update_momenta_fg(itgr->mnls_per_ts[S], eps , omf4fg2_b[k], omf4fg2_c[k] , itgr->no_mnls_per_ts[S], &itgr->hf);
+      }
+      itgr->integrate[S-1](omf4fg2_a[5]*eps, S-1, 0, omf4fg_a[1]*eps);
+      update_momenta_fg(itgr->mnls_per_ts[S], 2*eps, omf4fg2_b[5], omf4fg2_c[5], itgr->no_mnls_per_ts[S], &itgr->hf);
+    }
+    
+   for (k=1;k<5;k++)
+   {
+      itgr->integrate[S-1](omf4fg2_a[k]*eps, S-1, 0, omf4fg2_a[k+1]*eps);
+      update_momenta_fg(itgr->mnls_per_ts[S], eps , omf4fg2_b[k], omf4fg2_c[k] , itgr->no_mnls_per_ts[S], &itgr->hf);
+   }
+   
+   if(S == itgr->no_timescales-1) 
+    {
+      itgr->integrate[S-1](omf4fg2_a[5]*eps, S-1, 1, omf4fg2_a[1]*eps);
+    }
+    else 
+       itgr->integrate[S-1](omf4fg2_a[5]*eps, S-1, halfstep, omf4fg2_a[1]*eps2);
+       
+    if(halfstep != 1 && S != itgr->no_timescales-1) {
+      update_momenta_fg(itgr->mnls_per_ts[S], (eps+eps2), omf4fg2_b[5],  omf4fg2_c[5] itgr->no_mnls_per_ts[S], &itgr->hf);
+    }
+  }
+
+  if(S == itgr->no_timescales-1) {
+    dohalfstep(tau, S);
+  }
+  return;
+}
+
+void integrate_omf6fg2(const double tau, const int S, const int halfstep, const double tau2){
+  int i,j=0;
+  int k;
+  integrator * itgr = &Integrator;
+  double eps,eps2;
+  
+  if(S == itgr->no_timescales-1) {
+    dohalfstep(tau, S);
+  }
+  eps  = tau/((double)itgr->n_int[S]);
+  eps2 = tau2/((double)itgr->n_int[S]);
+  
+  if(S == 0) {
+
+    for(j = 1; j < itgr->n_int[0]; j++) {
+      for (k=1;k<6;k++)
+      {
+         update_gauge(omf6fg2_a[k]*eps, &itgr->hf);
+         update_momenta_fg(itgr->mnls_per_ts[0], eps , omf6fg2_b[k], omf6fg2_c[k] , itgr->no_mnls_per_ts[0], &itgr->hf);
+      }
+      update_gauge(omf6fg2_a[6]*eps, &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[0], 2*eps, omf6fg2_b[6], omf6fg2_c[6] itgr->no_mnls_per_ts[0], &itgr->hf);
+    }
+    
+   for (k=1;k<6;k++)
+   {
+      update_gauge(omf6fg2_a[k]*eps, &itgr->hf);
+      update_momenta_fg(itgr->mnls_per_ts[0], eps , omf6fg2_b[k], omf6fg2_c[k] , itgr->no_mnls_per_ts[0], &itgr->hf);
+   }
+   update_gauge(omf6fg2_a[6]*eps, &itgr->hf);
+   
+   if(halfstep != 1) {
+      update_momenta_fg(itgr->mnls_per_ts[0], eps+eps2, omf6fg2_b[6],  omf6fg2_c[6], itgr->no_mnls_per_ts[0], &itgr->hf);
+    }
+  }
+  else {
+    for(i = 1; i < itgr->n_int[S]; i++){
+      for (k=1;k<6;k++)
+      {
+         itgr->integrate[S-1](omf6fg2_a[k]*eps, S-1, 0, omf6fg2_a[k+1]*eps);
+         update_momenta_fg(itgr->mnls_per_ts[S], eps , omf6fg2_b[k], omf6fg2_c[k] , itgr->no_mnls_per_ts[S], &itgr->hf);
+      }
+      itgr->integrate[S-1](omf6fg2_a[6]*eps, S-1, 0, omf6fg_a[1]*eps);
+      update_momenta_fg(itgr->mnls_per_ts[S], 2*eps, omf6fg2_b[6], omf6fg2_c[6], itgr->no_mnls_per_ts[S], &itgr->hf);
+    }
+    
+   for (k=1;k<6;k++)
+   {
+      itgr->integrate[S-1](omf6fg2_a[k]*eps, S-1, 0, omf6fg2_a[k+1]*eps);
+      update_momenta_fg(itgr->mnls_per_ts[S], eps , omf6fg2_b[k], omf6fg2_c[k] , itgr->no_mnls_per_ts[S], &itgr->hf);
+   }
+   
+   if(S == itgr->no_timescales-1) 
+    {
+      itgr->integrate[S-1](omf6fg2_a[6]*eps, S-1, 1, omf6fg2_a[1]*eps);
+    }
+    else 
+       itgr->integrate[S-1](omf6fg2_a[6]*eps, S-1, halfstep, omf6fg2_a[1]*eps2);
+       
+    if(halfstep != 1 && S != itgr->no_timescales-1) {
+      update_momenta_fg(itgr->mnls_per_ts[S], (eps+eps2), omf6fg2_b[6],  omf6fg2_c[6] itgr->no_mnls_per_ts[S], &itgr->hf);
+    }
+  }
+
+  if(S == itgr->no_timescales-1) {
+    dohalfstep(tau, S);
+  }
   return;
 }
 
