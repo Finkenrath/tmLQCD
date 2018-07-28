@@ -36,6 +36,8 @@
 integrator Integrator;
 int int_type_tmp[10];
 
+static const double lambda_2mnfg = 0.166666666666667;
+
 static const double fg_chi = 0.0138888888888889;
 static const double omf4_rho = 0.2539785108410595;
 static const double omf4_theta = -0.03230286765269967;
@@ -258,28 +260,22 @@ int init_integrator() {
   for(i = 0; i < 10; i++) {
     Integrator.no_mnls_per_ts[i] = 0;
   }
-  if(Integrator.type[Integrator.no_timescales-1] == MN2p) {
-    for(i = 0; i < Integrator.no_timescales; i++) {
-      Integrator.type[i] = MN2p;
-      Integrator.integrate[i] = &integrate_2mnp;
-    }
-  }
-  else if (Integrator.type[Integrator.no_timescales-1] == OPT4FG) {
-    for(i = 0; i < Integrator.no_timescales; i++) {
-      Integrator.type[i] = OPT4FG;
-      Integrator.integrate[i] = &integrate_opt4fg;
-    }
-  }
-  else if (Integrator.type[Integrator.no_timescales-1] == OPT6FG) {
-    for(i = 0; i < Integrator.no_timescales; i++) {
-      Integrator.type[i] = OPT6FG;
-      Integrator.integrate[i] = &integrate_opt6fg;
-    }
-  }
-   else if (Integrator.type[Integrator.no_timescales-1] == OPT8FG) {
-    for(i = 0; i < Integrator.no_timescales; i++) {
-      Integrator.type[i] = OPT8FG;
-      Integrator.integrate[i] = &integrate_opt8fg;
+  
+  if ((Integrator.type[Integrator.no_timescales-1] == MN2p)||(Integrator.type[Integrator.no_timescales-1] == OPT4FG)||(Integrator.type[Integrator.no_timescales-1] == OPT6FG)||(Integrator.type[Integrator.no_timescales-1] == OPT8FG))
+  {
+   for(i = 0; i < Integrator.no_timescales; i++) {
+      if((Integrator.type[i] == MN2p)||(Integrator.type[i] == MN2)||(Integrator.type[i] == LEAPFROG)) {
+         Integrator.integrate[i] = &integrate_2mnp;
+      }
+      else if((Integrator.type[i] == OPT4FG)||(Integrator.type[i] == OMF4)||(Integrator.type[i] == MN2FG)||(Integrator.type[i] == OMF4FG)||(Integrator.type[i] == OMF4FG2)) {
+         Integrator.integrate[i] = &integrate_opt4fg;
+      }
+      else if((Integrator.type[i] == OPT6FG)||(Integrator.type[i] == OMF6FG)||(Integrator.type[i] == OMF6FG2)) {
+         Integrator.integrate[i] = &integrate_opt6fg;
+      }
+      else if((Integrator.type[i] == OPT8FG)||(Integrator.type[i] == OMF8FG)) {
+         Integrator.integrate[i] = &integrate_opt8fg;
+      }
     }
   }
   else {
@@ -347,39 +343,53 @@ int init4tune_integrator(int level) {
   for(i = 0; i < 10; i++) {
     Integrator.no_mnls_per_ts[i] = 0;
   }
-  if(Integrator.type[Integrator.no_timescales-1] == MN2p) {
-    for(i = Integrator.no_timescales-1; i > level-1; i--) {
-      Integrator.integrate[i] = &integrate_2mnp;
-		Integrator.type[i] = MN2p;
-    }
-    for(i = level; i > -1; i--) {
-      Integrator.integrate[i] = &integrate_opt4fg;
-		Integrator.type[i] = OPT4FG;
-    }
-  }
-  else if (Integrator.type[Integrator.no_timescales-1] == OPT4FG) {
-    for(i = Integrator.no_timescales-1; i > level-1; i--) {
-      Integrator.integrate[i] = &integrate_opt4fg;
-		Integrator.type[i] = OPT4FG;
-    }
-    for(i = level; i > -1; i--) {
-      Integrator.integrate[i] = &integrate_opt6fg;
-		Integrator.type[i] = OPT6FG;
-    }
-  }
-  else if (Integrator.type[Integrator.no_timescales-1] == OPT6FG) {
-    for(i = Integrator.no_timescales-1; i > level-1; i--) {
-      Integrator.integrate[i] = &integrate_opt6fg;
-		Integrator.type[i] = OPT6FG;
-    }
-    for(i = level; i > -1; i--) {
-      Integrator.integrate[i] = &integrate_opt8fg;
-		Integrator.type[i] = OPT8FG;
-    }
-  }
-   else if (Integrator.type[Integrator.no_timescales-1] == OPT8FG) {
-      if(g_proc_id == 0) {
-         fprintf(stderr, "Warning: for OPT8FG scheme no higher order scheme available\n");
+  
+  
+  if ((Integrator.type[Integrator.no_timescales-1] == MN2p)||(Integrator.type[Integrator.no_timescales-1] == OPT4FG)||(Integrator.type[Integrator.no_timescales-1] == OPT6FG)||(Integrator.type[Integrator.no_timescales-1] == OPT8FG))
+  {
+   for(i = 0; i < Integrator.no_timescales; i++)
+      {
+      if((Integrator.type[i] == MN2p) || Integrator.type[i] == MN2 || Integrator.type[i] == LEAPFROG) {
+         if (i<level)
+			{
+            Integrator.integrate[i] = &integrate_opt4fg;
+				Integrator.type[i] = OPT4FG;
+			}
+         else
+			{
+            Integrator.integrate[i] = &integrate_2mnp;
+				Integrator.type[i] = MN2p;
+			}
+      }
+      if((Integrator.type[i] == OPT4FG) || (Integrator.type[i] == MN2FG) || (Integrator.type[i] == OMF4)) {
+         if (i<level)
+			{
+            Integrator.integrate[i] = &integrate_opt6fg;
+				Integrator.type[i] = OPT6FG;
+			}
+         else
+			{
+            Integrator.integrate[i] = &integrate_opt4fg;
+				Integrator.type[i] = OPT4FG;
+			}
+      }
+      if((Integrator.type[i] == OPT6FG) || (Integrator.type[i] == OMF6FG) || (Integrator.type[i] == OMF6FG2)) {
+         if (i<level)
+			{
+            Integrator.integrate[i] = &integrate_opt8fg;
+				Integrator.type[i] = OPT8FG;
+			}
+         else
+			{
+            Integrator.integrate[i] = &integrate_opt6fg;
+				Integrator.type[i] = OPT6FG;
+			}
+      }
+      else if (Integrator.type[Integrator.no_timescales-1] == OPT8FG) {
+         if(g_proc_id == 0) {
+            fprintf(stderr, "Warning: for OPT8FG scheme no higher order scheme available\n");
+      }
+      }
       }
   }
   else {
@@ -388,7 +398,7 @@ int init4tune_integrator(int level) {
          if (i<level)
 			{
             Integrator.integrate[i] = &integrate_omf4;
-				Integrator.type[i] = OMF4;
+				Integrator.type[i] = MN2FG;
 			}
          else
 			{
@@ -407,6 +417,18 @@ int init4tune_integrator(int level) {
 				Integrator.type[i] = LEAPFROG;
 			}
       }
+      else if(Integrator.type[i] == MN2FG || Integrator.type[i] == OPT4FG) {
+         if (i<level)
+			{
+            Integrator.integrate[i] = &integrate_omf8fg;
+				Integrator.type[i] = OMF8FG;
+			}
+         else
+			{
+            Integrator.integrate[i] = &integrate_2mnfg;
+				Integrator.type[i] = MN2FG;
+			}
+      }
       else if(Integrator.type[i] == OMF4) {
          if (i<level)
 			{
@@ -419,7 +441,7 @@ int init4tune_integrator(int level) {
 				Integrator.type[i] = OMF4;
 			}
       }
-      else if(Integrator.type[i] == MN2FG || Integrator.type[i] == OPT4FG) {
+      else if(Integrator.type[i] == OMF4FG) {
          if (i<level)
 			{
             Integrator.integrate[i] = &integrate_omf8fg;
@@ -427,8 +449,20 @@ int init4tune_integrator(int level) {
 			}
          else
 			{
-            Integrator.integrate[i] = &integrate_2mnfg;
-				Integrator.type[i] = MN2FG;
+            Integrator.integrate[i] = &integrate_omf4fg;
+				Integrator.type[i] = OMF4FG;
+			}
+      }
+      else if(Integrator.type[i] == OMF4FG2) {
+         if (i<level)
+			{
+            Integrator.integrate[i] = &integrate_omf8fg;
+				Integrator.type[i] = OMF8FG;
+			}
+         else
+			{
+            Integrator.integrate[i] = &integrate_omf4fg2;
+				Integrator.type[i] = OMF4FG2;
 			}
       }
       else if(Integrator.type[i] == OMF6FG || Integrator.type[i] == OPT6FG) {
@@ -890,10 +924,10 @@ void integrate_opt8fg(const double tau, const int S, const int halfstep, const d
   else {
     for(i = 0; i < itgr->n_int[S]; i++) {
    
-      integrate_opt8fg(opt8_a[0]*eps, S-1, halfstep, opt8_a[1]*eps);
+      itgr->integrate[S-1](opt8_a[0]*eps, S-1, halfstep, opt8_a[1]*eps);
       for(k=1;k<12;k++){
           update_momenta_fg(itgr->mnls_per_ts[S],eps , opt8_b[k], opt8_c[k] , itgr->no_mnls_per_ts[S], &itgr->hf);
-          integrate_opt8fg(opt8_a[k]*eps, S-1, halfstep, opt8_a[(k+1)%12]*eps);
+          itgr->integrate[S-1](opt8_a[k]*eps, S-1, halfstep, opt8_a[(k+1)%12]*eps);
        }
     }
   }
@@ -934,19 +968,19 @@ void integrate_opt6fg(const double tau, const int S, const int halfstep, const d
   }
   else {
     for(i = 0; i < itgr->n_int[S]; i++) {
-      integrate_opt6fg(opt6_rho*eps, S-1, halfstep, opt6_theta*eps);
+      itgr->integrate[S-1](opt6_rho*eps, S-1, halfstep, opt6_theta*eps);
       update_momenta_fg(itgr->mnls_per_ts[S], eps , opt6_nu, opt6_mu , itgr->no_mnls_per_ts[S], &itgr->hf);
-      integrate_opt6fg(opt6_theta*eps, S-1, halfstep, oneminus2thetarho*eps);
+      itgr->integrate[S-1](opt6_theta*eps, S-1, halfstep, oneminus2thetarho*eps);
       
       update_momenta(itgr->mnls_per_ts[S], opt6_lamb*eps, itgr->no_mnls_per_ts[S], &itgr->hf);
-      integrate_opt6fg(oneminus2thetarho*eps, S-1, halfstep, oneminus2thetarho*eps);
+      itgr->integrate[S-1](oneminus2thetarho*eps, S-1, halfstep, oneminus2thetarho*eps);
       update_momenta_fg(itgr->mnls_per_ts[S],eps , oneminus2lambdanu, opt6_chi , itgr->no_mnls_per_ts[S], &itgr->hf);
-      integrate_opt6fg(oneminus2thetarho*eps, S-1, halfstep, opt6_theta*eps);
+      itgr->integrate[S-1](oneminus2thetarho*eps, S-1, halfstep, opt6_theta*eps);
       update_momenta(itgr->mnls_per_ts[S], opt6_lamb*eps, itgr->no_mnls_per_ts[S], &itgr->hf);
       
-      integrate_opt6fg(opt6_theta*eps, S-1, halfstep, opt6_rho*eps);
+      itgr->integrate[S-1](opt6_theta*eps, S-1, halfstep, opt6_rho*eps);
       update_momenta_fg(itgr->mnls_per_ts[S], eps , opt6_nu, opt6_mu , itgr->no_mnls_per_ts[S], &itgr->hf);
-      integrate_opt6fg(opt6_rho*eps, S-1, halfstep, opt6_rho*eps);
+      itgr->integrate[S-1](opt6_rho*eps, S-1, halfstep, opt6_rho*eps);
     }
   }
 }
@@ -978,15 +1012,15 @@ void integrate_opt4fg(const double tau, const int S, const int halfstep, const d
   }
   else {
     for(i = 0; i < itgr->n_int[S]; i++) {
-      integrate_opt4fg(opt4_theta*eps, S-1, halfstep, oneminus2theta*eps);
+      itgr->integrate[S-1](opt4_theta*eps, S-1, halfstep, oneminus2theta*eps);
       update_momenta(itgr->mnls_per_ts[S], opt4_lamb*eps, itgr->no_mnls_per_ts[S], &itgr->hf);
       
-      integrate_opt4fg(oneminus2theta*eps, S-1, halfstep, oneminus2theta*eps);
+      itgr->integrate[S-1](oneminus2theta*eps, S-1, halfstep, oneminus2theta*eps);
       update_momenta_fg(itgr->mnls_per_ts[S],eps , oneminus2lambda, opt4_chi , itgr->no_mnls_per_ts[S], &itgr->hf);
-      integrate_opt4fg(oneminus2theta*eps, S-1, halfstep, oneminus2theta*eps);
+      itgr->integrate[S-1](oneminus2theta*eps, S-1, halfstep, oneminus2theta*eps);
       
       update_momenta(itgr->mnls_per_ts[S], opt4_lamb*eps, itgr->no_mnls_per_ts[S], &itgr->hf);
-      integrate_opt4fg(opt4_theta*eps, S-1, halfstep, oneminus2theta*eps);
+      itgr->integrate[S-1](opt4_theta*eps, S-1, halfstep, oneminus2theta*eps);
     }
   }
 }
@@ -1138,13 +1172,13 @@ void integrate_2mnp(const double tau, const int S, const int halfstep, const dou
   }
   else {
     for(i = 0; i < itgr->n_int[S]; i++) {
-      integrate_2mnp(itgr->lambda[S]*eps, S-1, halfstep,oneminus2lambda*eps);
+      itgr->integrate[S-1](itgr->lambda[S]*eps, S-1, halfstep,oneminus2lambda*eps);
       update_momenta(itgr->mnls_per_ts[S], 0.5*eps, itgr->no_mnls_per_ts[S], &itgr->hf);
 
-      integrate_2mnp(oneminus2lambda*eps, S-1, halfstep,itgr->lambda[S]*eps);
+      itgr->integrate[S-1](oneminus2lambda*eps, S-1, halfstep,itgr->lambda[S]*eps);
       update_momenta(itgr->mnls_per_ts[S], 0.5*eps, itgr->no_mnls_per_ts[S], &itgr->hf);
 
-      integrate_2mnp(itgr->lambda[S]*eps, S-1, halfstep,itgr->lambda[S]*eps);
+      itgr->integrate[S-1](itgr->lambda[S]*eps, S-1, halfstep,itgr->lambda[S]*eps);
     }
   }
 }
@@ -1153,7 +1187,7 @@ void integrate_2mnp(const double tau, const int S, const int halfstep, const dou
 void integrate_2mnfg(const double tau, const int S, const int halfstep, const double tau2) {
   int i,j=0;
   integrator * itgr = &Integrator;
-  double eps,eps2, oneminus2lambda = (1.-2.*itgr->lambda[S]);
+  double eps,eps2, oneminus2lambda = (1.-2*lambda_2mnfg);
 
   if(S == itgr->no_timescales-1) {
     dohalfstep(tau, S);
@@ -1167,13 +1201,13 @@ void integrate_2mnfg(const double tau, const int S, const int halfstep, const do
       update_gauge(0.5*eps, &itgr->hf);
       update_momenta_fg(itgr->mnls_per_ts[0],eps, oneminus2lambda, fg_chi , itgr->no_mnls_per_ts[0], &itgr->hf);
       update_gauge(0.5*eps, &itgr->hf);
-      update_momenta(itgr->mnls_per_ts[0], 2.*itgr->lambda[0]*eps, itgr->no_mnls_per_ts[0], &itgr->hf);
+      update_momenta(itgr->mnls_per_ts[0], 2.*lambda_2mnfg, itgr->no_mnls_per_ts[0], &itgr->hf);
     }
     update_gauge(0.5*eps, &itgr->hf);
     update_momenta_fg(itgr->mnls_per_ts[0],eps, oneminus2lambda, fg_chi , itgr->no_mnls_per_ts[0], &itgr->hf);
     update_gauge(0.5*eps, &itgr->hf);
     if(halfstep != 1) {
-      update_momenta(itgr->mnls_per_ts[0], itgr->lambda[0]*(eps+eps2), itgr->no_mnls_per_ts[0], &itgr->hf);
+      update_momenta(itgr->mnls_per_ts[0], lambda_2mnfg*(eps+eps2), itgr->no_mnls_per_ts[0], &itgr->hf);
     }
   }
   else {
@@ -1181,7 +1215,7 @@ void integrate_2mnfg(const double tau, const int S, const int halfstep, const do
       itgr->integrate[S-1](eps/2., S-1, 0, eps/2);
       update_momenta_fg(itgr->mnls_per_ts[S],eps, oneminus2lambda, fg_chi , itgr->no_mnls_per_ts[S], &itgr->hf);
       itgr->integrate[S-1](eps/2., S-1, 0, eps/2);
-      update_momenta(itgr->mnls_per_ts[S], 2*itgr->lambda[S]*eps, itgr->no_mnls_per_ts[S], &itgr->hf);
+      update_momenta(itgr->mnls_per_ts[S], 2*lambda_2mnfg*eps, itgr->no_mnls_per_ts[S], &itgr->hf);
     }
     itgr->integrate[S-1](eps/2., S-1, 0, eps/2);
     update_momenta_fg(itgr->mnls_per_ts[S],eps, oneminus2lambda, fg_chi , itgr->no_mnls_per_ts[S], &itgr->hf);
@@ -1190,7 +1224,7 @@ void integrate_2mnfg(const double tau, const int S, const int halfstep, const do
     }
     else itgr->integrate[S-1](eps/2., S-1, halfstep, eps2/2.);
     if(halfstep != 1 && S != itgr->no_timescales-1) {
-      update_momenta(itgr->mnls_per_ts[S], itgr->lambda[S]*(eps+eps2), itgr->no_mnls_per_ts[S], &itgr->hf);
+      update_momenta(itgr->mnls_per_ts[S], lambda_2mnfg*(eps+eps2), itgr->no_mnls_per_ts[S], &itgr->hf);
     }
   }
 
