@@ -35,7 +35,7 @@
 
 #include "global.h"
 #include <float.h>
-#include <math.h>
+//#include <math.h>
 
 typedef enum tm_quda_ferm_bc_t {
   TM_QUDA_THETABC = 0,
