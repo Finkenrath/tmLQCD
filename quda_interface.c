@@ -112,6 +112,10 @@
 #include "global.h"
 #include "operator.h"
 
+
+#include <time.h>
+#include "gettime.h"
+
 // nstore is generally like a gauge id, for measurements it identifies the gauge field
 // uniquely 
 extern int nstore;
@@ -567,8 +571,8 @@ void reorder_spinor_toQuda_oo( double* sp, QudaPrecision precision, int doublet,
   double startTime = gettime();
 
   if( doublet ) {
-    memcpy( tempSpinor,           sp,  VOLUME*24*sizeof(double) );
-    memcpy( tempSpinor+VOLUME*24, sp2, VOLUME*24*sizeof(double) );
+    memcpy( tempSpinor,           sp,  VOLUME*12*sizeof(double) );
+    memcpy( tempSpinor+VOLUME*12, sp2, VOLUME*12*sizeof(double) );
   }
   else {
     memcpy( tempSpinor, sp, VOLUME*24*sizeof(double) );
@@ -591,15 +595,19 @@ void reorder_spinor_toQuda_oo( double* sp, QudaPrecision precision, int doublet,
 #endif
           int oddBit = (x0+x1+x2+x3) & 1;
 
+	  int ix = g_ipt[x0][x1][x2][x3];
+	  int i = g_lexic2eosub[ ix ];
+	  i=ix;
+	  
           if (oddBit==1)
           {
-            oddBit=0;
+	    oddBit=0;
             if( doublet ) {
-               memcpy( &(sp[24*(oddBit*VOLUME+j/2)]),          &(tempSpinor[24* tm_idx        ]), 24*sizeof(double));
-               memcpy( &(sp2[24*(oddBit*VOLUME+j/2+VOLUME/2)]), &(tempSpinor[24*(tm_idx+VOLUME)]), 24*sizeof(double));
+               memcpy( &(sp[24*(oddBit*VOLUME+j/2)]),          &(tempSpinor[24* i        ]), 24*sizeof(double));
+               memcpy( &(sp2[24*(oddBit*VOLUME+j/2+VOLUME/2)]), &(tempSpinor[24*(i+VOLUME/2)]), 24*sizeof(double));
             }
             else {
-               memcpy( &(sp[24*(oddBit*VOLUME/2+j/2)]), &(tempSpinor[24*tm_idx]), 24*sizeof(double));
+               memcpy( &(sp[24*(oddBit*VOLUME/2+j/2)]), &(tempSpinor[24*i]), 24*sizeof(double));
             }
           }
         }
@@ -615,7 +623,7 @@ void reorder_spinor_fromQuda_oo( double* sp, QudaPrecision precision, int double
   double startTime = gettime();
 
   if( doublet ) {
-    memcpy( tempSpinor, sp, 2*VOLUME*24*sizeof(double) );
+    memcpy( tempSpinor, sp, 2*VOLUME*12*sizeof(double) );
   }
   else {
     memcpy( tempSpinor, sp, VOLUME*24*sizeof(double) );
@@ -638,14 +646,19 @@ void reorder_spinor_fromQuda_oo( double* sp, QudaPrecision precision, int double
 #endif
           int oddBit = (x0+x1+x2+x3) & 1;
 
+	  //TODO: Fix this, seems not to work without convert_odd_to_lexic
+	   int ix = g_ipt[x0][x1][x2][x3];
+	   int i = g_lexic2eosub[ ix ];
+	   i=ix;
+	   
           if (oddBit==1){
-             oddBit=0;
+	   oddBit=0;
             if( doublet ) {
-               memcpy( &(sp[24* tm_idx]),  &(tempSpinor[24*(oddBit*VOLUME+j/2)         ]), 24*sizeof(double));
-               memcpy( &(sp2[24*(tm_idx)]), &(tempSpinor[24*(oddBit*VOLUME+j/2+VOLUME/2)]), 24*sizeof(double));
+               memcpy( &(sp[24* i]),  &(tempSpinor[24*(oddBit*VOLUME+j/2)         ]), 24*sizeof(double));
+               memcpy( &(sp2[24*(i)]), &(tempSpinor[24*(oddBit*VOLUME+j/2+VOLUME/2)]), 24*sizeof(double));
             }
             else {
-               memcpy( &(sp[24*tm_idx]), &(tempSpinor[24*(oddBit*VOLUME/2+j/2)]), 24*sizeof(double));
+               memcpy( &(sp[24*i]), &(tempSpinor[24*(oddBit*VOLUME/2+j/2)]), 24*sizeof(double));
             }
           }
         }
@@ -876,8 +889,8 @@ int invert_eo_quda(spinor * const Even_new, spinor * const Odd_new,
 }
 
 
-int invert_eo_quda_two_flavour(spinor * const Even_new, spinor * const Odd_new,
-                   spinor * const Even, spinor * const Odd,
+int invert_eo_quda_two_flavour(spinor * const Odd_new,
+		   spinor * const Odd,
                    const double precision, const int max_iter,
                    const int solver_flag, const int rel_prec,
                    const int even_odd_flag, solver_params_t solver_params,
@@ -888,14 +901,17 @@ int invert_eo_quda_two_flavour(spinor * const Even_new, spinor * const Odd_new,
   const int nr_sf = 2;
   init_solver_field(&solver_field, VOLUMEPLUSRAND, nr_sf);
 
-  convert_eo_to_lexic(solver_field[0],  Even, Odd);
+  convert_odd_to_lexic(solver_field[0],  Odd);
 
 // this is basically not necessary, but if we want to use an a nitial guess, it will be
 //  convert_eo_to_lexic(solver_field[1], Even_new, Odd_new);
 
-  void *spinorIn  = (void*)solver_field[0]; // source
-  void *spinorOut = (void*)solver_field[1]; // solution
+  //void *spinorIn  = (void*) Odd; // source
+  //void *spinorOut = (void*) Odd_new; // solution
 
+  void *spinorIn  = (void*) solver_field[0]; // source
+  void *spinorOut = (void*) solver_field[1]; // solution
+  
   if ( rel_prec )
     inv_param.residual_type = QUDA_L2_RELATIVE_RESIDUAL;
   else
@@ -909,13 +925,22 @@ int invert_eo_quda_two_flavour(spinor * const Even_new, spinor * const Odd_new,
   set_sloppy_prec(sloppy_precision);
   
   // load gauge after setting precision
+  double atime=0., etime=0.;
+  if ( g_proc_id == 0 && g_debug_level >= 1 ){
+    atime = gettime();
+  }
   _loadGaugeQuda(compression);
+  if ( g_proc_id == 0 && g_debug_level >= 1 ){
+    etime = gettime();
+    printf("# QUDA: Load done in %e seconds \n", etime-atime);
+  }
 
   // this will also construct the clover field and its inverse, if required
   // it will also run the MG setup
   _setTwoFlavourSolverParam(g_kappa,
                             g_c_sw,
                             g_mu,
+                            g_mu3,
                             solver_flag,
                             even_odd_flag,
                             precision,
@@ -923,16 +948,24 @@ int invert_eo_quda_two_flavour(spinor * const Even_new, spinor * const Odd_new,
 
   // reorder spinor
   reorder_spinor_toQuda_oo( (double*)spinorIn, inv_param.cpu_prec, 0, NULL );
-  printf("MNDEBUG3.1\n");
   // perform the inversion
+  
+  
+   if ( g_proc_id == 0 && g_debug_level >= 1 ){
+    atime = gettime();
+  }
   invertQuda(spinorOut, spinorIn, &inv_param);
-  printf("MNDEBUG3.2\n");
+  if ( g_proc_id == 0 && g_debug_level >= 1 ){
+    etime = gettime();
+    printf("# QUDA: Inversion done in %e seconds \n", etime-atime);
+  }
+  
+  
 
   if( inv_param.verbosity > QUDA_SILENT )
     if(g_proc_id == 0)
       printf("# QUDA: Done: %i iter / %g secs = %g Gflops\n",
              inv_param.iter, inv_param.secs, inv_param.gflops/inv_param.secs);
-  printf("MNDEBUG3.3\n");
   // number of CG iterations
   int iteration = inv_param.iter;
 
@@ -943,10 +976,20 @@ int invert_eo_quda_two_flavour(spinor * const Even_new, spinor * const Odd_new,
   //convert_lexic_to_eo(Even,     Odd,     solver_field[0]);
   
   reorder_spinor_fromQuda_oo( (double*)spinorOut, inv_param.cpu_prec, 0, NULL );
-  convert_lexic_to_eo(Even_new, Odd_new, solver_field[1]);
-  printf("MNDEBUG4\n");
+  convert_lexic_to_odd( Odd_new, solver_field[1]);
+  //convert_lexic_to_eo(Even_new, Odd_new, solver_field[1]);
+  
+  if ( g_proc_id == 0 && g_debug_level >= 1 ){
+	atime = gettime();
+  }
+ 
+ 
+  
   finalize_solver(solver_field, nr_sf);
-
+  reset_quda_gauge_state(&quda_gauge_state);
+  reset_quda_clover_state(&quda_clover_state);
+  
+  
   if(iteration >= max_iter)
     return(-1);
 
@@ -1297,14 +1340,13 @@ void _setOneFlavourSolverParam(const double kappa, const double c_sw, const doub
   }
 }
 
-void _setTwoFlavourSolverParam(const double kappa, const double c_sw, const double mu, 
+void _setTwoFlavourSolverParam(const double kappa, const double c_sw, const double mu, const double rho,
                                const int solver_type, const int even_odd,
                                const double eps_sq, const int maxiter) {
 
   inv_param.tol = sqrt(eps_sq);
   inv_param.maxiter = maxiter;
   inv_param.Ls = 1;
-  printf("MNDEBUG1\n");
   // choose dslash type
   if( fabs(mu) > 0.0 && c_sw > 0.0 ) {
     inv_param.twist_flavor = QUDA_TWIST_SINGLET;
@@ -1313,11 +1355,12 @@ void _setTwoFlavourSolverParam(const double kappa, const double c_sw, const doub
     inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
     inv_param.clover_order = QUDA_PACKED_CLOVER_ORDER;
     // IMPORTANT: use opposite TM flavor since gamma5 -> -gamma5 (until LXLYLZT prob. resolved)
-    inv_param.mu = mu/2./kappa;
+    inv_param.mu = (mu/2./kappa)+rho;
+    inv_param.mu_even = mu/2./kappa;
     inv_param.clover_coeff = c_sw*kappa;
     inv_param.compute_clover_inverse = 1;
     inv_param.compute_clover = 1;
-    printf("MNDEBUG2\n");
+
   }
   else if( fabs(mu) > 0.0 ) {
     inv_param.twist_flavor = QUDA_TWIST_SINGLET;
@@ -1325,7 +1368,7 @@ void _setTwoFlavourSolverParam(const double kappa, const double c_sw, const doub
     inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
     inv_param.solution_type = QUDA_MAT_SOLUTION;
     // IMPORTANT: use opposite TM flavor since gamma5 -> -gamma5 (until LXLYLZT prob. resolved)
-    inv_param.mu = -mu/2./kappa;
+    inv_param.mu = (mu+rho)/2./kappa;
   }
   else if( c_sw > 0.0 ) {
     inv_param.twist_flavor = QUDA_TWIST_NO;
@@ -1380,7 +1423,7 @@ void _setTwoFlavourSolverParam(const double kappa, const double c_sw, const doub
     }
     else {
       inv_param.solve_type = QUDA_NORMOP_SOLVE;
-      if(g_proc_id == 0) printf("# QUDA: Not using EO preconditioning!\n");
+//       if(g_proc_id == 0) printf("# QUDA: Not using EO preconditioning!\n");
     }
   }
   else {
@@ -1399,6 +1442,8 @@ void _setTwoFlavourSolverParam(const double kappa, const double c_sw, const doub
   if( c_sw > 0.0 ) {
     _loadCloverQuda(&inv_param);
   }
+  
+  inv_param.mu = (mu+rho)/2./kappa;
 
   if( g_proc_id == 0){
     printf("# QUDA: mu = %.12f, kappa = %.12f, csw = %.12f\n", mu/2./kappa, kappa, c_sw);
@@ -1460,7 +1505,6 @@ void _setTwoFlavourSolverParam(const double kappa, const double c_sw, const doub
     printQudaMultigridParam(&quda_mg_param);
     printf("----------------------------------------\n");
   }
-  printf("MNDEBUG3\n");
 }
 
 void _setQudaMultigridParam(QudaMultigridParam* mg_param) {
