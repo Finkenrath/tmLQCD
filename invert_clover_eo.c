@@ -76,28 +76,58 @@ int invert_clover_eo(spinor * const Even_new, spinor * const Odd_new,
     
 #ifdef TM_USE_QUDA
     if( external_inverter==QUDA_INVERTER ) {
-      invert_eo_quda_two_flavour(Odd_new, Odd,
+      invert_eo_quda_two_flavour(Even_new, Odd_new, Even, Odd,
                             precision, max_iter,
                             solver_flag, rel_prec,
                             even_odd_flag, solver_params,
                             sloppy, compression);
-
-   convert_odd_to_lexic(g_spinor_field[DUM_DERI], Odd);
-   convert_odd_to_lexic(g_spinor_field[DUM_DERI+1], Odd_new);
+   printf("MNDEBUG4\n");
+   convert_eo_to_lexic(g_spinor_field[DUM_DERI], Even, Odd);
+   convert_eo_to_lexic(g_spinor_field[DUM_DERI+1], Even_new, Odd_new);
     
-    double differ[2];
+    double differ[6], residual;
   spinor ** check_vect = NULL;
-  
+  double acc_factor = 2;
+  printf("MNDEBUG5\n");
   init_solver_field(&check_vect, VOLUMEPLUSRAND,1);
+  printf("MNDEBUG6\n");
   Qsw_pm_psi( check_vect[0], Odd_new);
+  printf("MNDEBUG7\n");
   //gamma5(check_vect[0],check_vect[0] , VOLUME);
+  printf("MNDEBUG8\n");
   diff( check_vect[0], check_vect[0], Odd, VOLUME/2);
   differ[0] = sqrt(square_norm(check_vect[0], VOLUME/2, 1));
   differ[1] = sqrt(square_norm(Odd, VOLUME/2, 1));
+  differ[5] = sqrt(square_norm(Odd_new, VOLUME/2, 1));
+  
+  Qsw_pm_psi( check_vect[0], Even_new);
+  printf("MNDEBUG7\n");
+  //gamma5(check_vect[0],check_vect[0] , VOLUME);
+  printf("MNDEBUG8\n");
+  diff( check_vect[0], check_vect[0], Even, VOLUME/2);
+  differ[2] = sqrt(square_norm(check_vect[0], VOLUME/2, 1));
+  differ[3] = sqrt(square_norm(Even, VOLUME/2, 1));
+  differ[4] = sqrt(square_norm(Even_new, VOLUME/2, 1));
+  
+  residual = differ[0]/differ[1];
 
   if ( g_proc_id == 0){
-    printf("residual TEST:  || s - f_{tmLQC} * f_{QUDA}^{-1} * s || / ||s|| = %e / %e = %e \n", differ[0],differ[1],differ[0]/differ[1]);
+    printf("TEST:  || s - f_{tmLQC} * f_{QUDA}^{-1} * s || / ||s|| = %e / %e = %e , %e \n", differ[0],differ[1],differ[0]/differ[1],differ[5]);
+    printf("EVEN LENGTH %e / %e  = %e, %e \n",differ[2],differ[3],differ[2]/differ[3],differ[4]);
   }
+  
+  gamma5(check_vect[0],check_vect[0] , VOLUME/2);
+  printf("MNDEBUG6\n");
+  Qsw_pm_psi( check_vect[0], Odd_new);
+  printf("MNDEBUG7\n");
+  gamma5(check_vect[0],check_vect[0] , VOLUME/2);
+  printf("MNDEBUG8\n");
+  diff( check_vect[0], check_vect[0], Odd, VOLUME/2);
+  differ[0] = sqrt(square_norm(check_vect[0], VOLUME/2, 1));
+  differ[1] = sqrt(square_norm(Odd, VOLUME/2, 1));
+  differ[5] = sqrt(square_norm(Odd_new, VOLUME/2, 1));
+  
+   printf("TEST:  || s - f_{tmLQC} * f_{QUDA}^{-1} * s || / ||s|| = %e / %e = %e , %e \n",differ[0],differ[1],differ[0]/differ[1],differ[5]);
     return  1;
     }
 #endif
