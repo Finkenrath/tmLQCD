@@ -108,8 +108,8 @@ int invert_eo_quda(spinor * const Even_new, spinor * const Odd_new,
                    const SloppyPrecision sloppy_precision,
                    CompressionType compression);
 
-int invert_eo_quda_two_flavour(spinor * const Even_new, spinor * const Odd_new,
-                   spinor * const Even, spinor * const Odd,
+int invert_eo_quda_two_flavour(spinor * const Odd_new,
+                   spinor * const Odd,
                    const double precision, const int max_iter,
                    const int solver_flag, const int rel_prec,
                    const int even_odd_flag, solver_params_t solver_params,
