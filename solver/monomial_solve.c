@@ -74,6 +74,9 @@
 #ifdef TM_USE_QPHIX
 #include "qphix_interface.h"
 #endif
+#ifdef TM_USE_QUDA
+#include "quda_interface.h" 
+#endif
 
 #include <io/params.h>
 #include <io/spinor.h>
@@ -101,7 +104,22 @@ int solve_degenerate(spinor * const P, spinor * const Q, solver_params_t solver_
   if(g_debug_level > 2 || solver_params.external_inverter == QPHIX_INVERTER){
     init_solver_field(&temp, VOLUMEPLUSRAND/2, 1);
   }
-
+#ifdef TM_USE_QUDA
+  if(solver_params.external_inverter == QUDA_INVERTER ){
+          
+          
+        if (f == Qsw_pm_psi)
+        {
+                _initQuda();
+                iteration_count = invert_eo_quda_two_flavour(P, Q, eps_sq, max_iter, solver_type, 
+                                                 rel_prec,1, solver_params, solver_params.sloppy_precision, solver_params.compression_type);
+        }
+        else
+                iteration_count =  cg_her(P, Q, max_iter, eps_sq, rel_prec, N, f);
+  } 
+  else
+#endif
+	  
 #ifdef TM_USE_QPHIX
   if(solver_params.external_inverter == QPHIX_INVERTER){
     // using CG for the HMC, we always want to have the solution of (Q Q^dagger) x = b, which is equivalent to
