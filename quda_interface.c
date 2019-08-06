@@ -1441,6 +1441,7 @@ void _setTwoFlavourSolverParam(const double kappa, const double c_sw, const doub
     inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
     inv_param.clover_order = QUDA_PACKED_CLOVER_ORDER;
     // IMPORTANT: use opposite TM flavor since gamma5 -> -gamma5 (until LXLYLZT prob. resolved)
+	 // however for the squared operator that is not true
     inv_param.mu = (mu/2./kappa)+rho;
     inv_param.mu_even = mu/2./kappa;
     inv_param.clover_coeff = c_sw*kappa;
@@ -1454,7 +1455,8 @@ void _setTwoFlavourSolverParam(const double kappa, const double c_sw, const doub
     inv_param.matpc_type = QUDA_MATPC_ODD_ODD_ASYMMETRIC;
     inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
     // IMPORTANT: use opposite TM flavor since gamma5 -> -gamma5 (until LXLYLZT prob. resolved)
-    inv_param.mu = (mu+rho)/2./kappa;
+    inv_param.mu = (mu/2./kappa)+rho;
+	 inv_param.mu_even = mu/2./kappa;
   }
   else if( c_sw > 0.0 ) {
     inv_param.twist_flavor = QUDA_TWIST_NO;
@@ -1532,7 +1534,7 @@ void _setTwoFlavourSolverParam(const double kappa, const double c_sw, const doub
   inv_param.mu = (mu+rho)/2./kappa;
 
   if( g_proc_id == 0){
-    printf("# QUDA: mu = %.12f, kappa = %.12f, csw = %.12f\n", mu/2./kappa, kappa, c_sw);
+    printf("# QUDA: mu = %.12f, mu_even =  %.12f, kappa = %.12f, csw = %.12f\n", mu/2./kappa,mu/2./kappa+rho, kappa, c_sw);
   }
   if(g_proc_id == 0 && g_debug_level > 3){
     printf("------------- OUTER SOLVER InvertParam --------------\n");
