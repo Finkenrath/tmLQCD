@@ -397,6 +397,7 @@ static inline double fltlist_next_token(int * const list_end){
 %x MNAME
 %x MCSTR
 %x MSOLVER
+%x RATMSOLVER
 %x NDMSOLVER
 %x GTYPE
 
@@ -810,12 +811,15 @@ static inline double fltlist_next_token(int * const list_end){
   {SPC}*MGNumberOfShifts{EQL}{DIGIT}+ {
     sscanf(yytext, " %[a-zA-Z] = %d", name, &a);
     mg_no_shifts=a;
+    // when the number of shifts is specified, mg_mss_mass must be set to zero!
     mg_mms_mass=0;
     if(myverbose) printf("  MG_Num_of_shifts set to %d line %d operator %d\n", mg_no_shifts, line_of_file, current_operator);
   }
   {SPC}*MGMMSMass{EQL}{FLT}+ {
     sscanf(yytext, " %[a-zA-Z] = %lf", name, &c);
     mg_mms_mass=c;
+    // when mg_mms_mass is specified, mg_no_shifts should be set to zero!
+    mg_no_shifts=0;
     if(myverbose) printf("  MG_MMS_Mass set to %f line %d operator %d\n", mg_mms_mass, line_of_file, current_operator);
   }
   EndDDalphaAMG{SPC}* {
@@ -1554,6 +1558,11 @@ static inline double fltlist_next_token(int * const list_end){
     quda_input.mg_enable_size_three_blocks = 0;
     if(myverbose) printf("  MGEnableSizeThreeBlocks set to NO in line %d\n", line_of_file);
   }
+  {SPC}*MGResetSetupThreshold{EQL}{FLT}+ {
+    sscanf(yytext, " %[a-zA-Z] = %lf", name, &c);
+    quda_input.mg_reset_setup_threshold=c;
+    if(myverbose) printf("  MGResetSetupThreshold set to %f line %d\n", quda_input.mg_reset_setup_threshold, line_of_file);
+  }
   ^EndExternalInverter{SPC}*  { 
     if(myverbose) printf("QUDA external inverter parameters parsed on line %d\n\n", line_of_file);
     BEGIN(0);
@@ -1796,12 +1805,20 @@ static inline double fltlist_next_token(int * const list_end){
   }
 }
 
-<DETMONOMIAL,POLYMONOMIAL,CLDETRATRWMONOMIAL,NDDETRATMONOMIAL,NDCLDETRATMONOMIAL>{
+<DETMONOMIAL,POLYMONOMIAL,CLDETRATRWMONOMIAL>{
   {SPC}*2KappaMu2{EQL}{FLT} {
     sscanf(yytext, " %[2a-zA-Z] = %lf", name, &c);
     mnl->mu2 = c;
     if(myverbose) printf("  2KappaMu2 set to %f line %d monomial %d\n", c, line_of_file, current_monomial);
   }
+  {SPC}*Kappa2{EQL}{FLT} {
+    sscanf(yytext, " %[2a-zA-Z] = %lf", name, &c);
+    mnl->kappa2 = c;
+    if(myverbose) printf("  kappa2 set to %f line %d monomial %d\n", c, line_of_file, current_monomial);
+  }
+}
+
+<NDDETRATMONOMIAL,NDCLDETRATMONOMIAL>{
   {SPC}*Kappa2{EQL}{FLT} {
     sscanf(yytext, " %[2a-zA-Z] = %lf", name, &c);
     mnl->kappa2 = c;
@@ -1919,7 +1936,7 @@ static inline double fltlist_next_token(int * const list_end){
   }
 }
 
-<NDRATMONOMIAL,NDRATCORMONOMIAL,NDCLRATMONOMIAL,NDCLRATCORMONOMIAL>{
+<NDRATMONOMIAL,NDRATCORMONOMIAL,NDCLRATMONOMIAL,NDCLRATCORMONOMIAL,NDDETRATMONOMIAL,NDCLDETRATMONOMIAL>{
   {SPC}*Solver{EQL} {
    solver_caller=YY_START;
    BEGIN(NDMSOLVER);
@@ -1929,11 +1946,11 @@ static inline double fltlist_next_token(int * const list_end){
 <RATMONOMIAL,RATCORMONOMIAL,CLRATMONOMIAL,CLRATCORMONOMIAL>{
   {SPC}*Solver{EQL} {
    solver_caller=YY_START;
-   BEGIN(MSOLVER);
+   BEGIN(RATMSOLVER);
   }
 }
 
-<DETMONOMIAL,POLYMONOMIAL,CLDETMONOMIAL,CLDETRATMONOMIAL,CLDETRATRWMONOMIAL,RATMONOMIAL,RATCORMONOMIAL,CLRATMONOMIAL,CLRATCORMONOMIAL,NDDETRATMONOMIAL,NDCLDETRATMONOMIAL>{
+<DETMONOMIAL,POLYMONOMIAL,CLDETMONOMIAL,CLDETRATMONOMIAL,CLDETRATRWMONOMIAL,RATMONOMIAL,RATCORMONOMIAL,CLRATMONOMIAL,CLRATCORMONOMIAL>{
   {SPC}*2KappaMu{EQL}{FLT} {
     sscanf(yytext, " %[2a-zA-Z] = %lf", name, &c);
     mnl->mu = c;
@@ -2149,15 +2166,33 @@ static inline double fltlist_next_token(int * const list_end){
     mnl->solver = BICGSTAB;
     BEGIN(solver_caller);
   }
-  cgmms {
-    if(myverbose) printf("  Solver set to \"%s\" line %d monomial %d\n", yytext, line_of_file, current_monomial);
-    mnl->solver = CGMMS;
-    BEGIN(solver_caller);
-  }
   mixedbicgstab {
     if(myverbose) printf("  Solver set to \"%s\" line %d monomial %d\n", yytext, line_of_file, current_monomial);
     mnl->solver=MIXEDBICGSTAB;
     BEGIN(name_caller);
+  }
+  DDalphaAMG {
+#ifdef DDalphaAMG
+    if(myverbose) printf("  Solver set to DDalphaAMG line %d operator %d\n", line_of_file, current_operator);
+    mnl->solver = MG;
+    BEGIN(solver_caller);
+#else
+    printf("ERROR line %d operator %d: DDalphaAMG library not included\n", line_of_file, current_operator);
+    exit(1);
+#endif
+  }
+}
+
+<RATMSOLVER>{
+  rgmixedCG {
+    if(myverbose) printf("  Solver set to \"%s\" line %d monomial %d\n", yytext, line_of_file, current_monomial);
+    mnl->solver = RGMIXEDCG;
+    BEGIN(solver_caller);
+  }
+  cgmms {
+    if(myverbose) printf("  Solver set to \"%s\" line %d monomial %d\n", yytext, line_of_file, current_monomial);
+    mnl->solver = CGMMS;
+    BEGIN(solver_caller);
   }
   DDalphaAMG {
 #ifdef DDalphaAMG
@@ -3194,6 +3229,7 @@ int read_input(char * conf_file){
   use_preconditioning = _default_use_preconditioning;
   stout_rho = _default_stout_rho;
   stout_no_iter = _default_stout_no_iter;
+  restoresu3_flag = _default_restoresu3_flag;
 
   /* check for reread ! */ 
   phmc_compute_evs = _default_phmc_compute_evs;
@@ -3256,6 +3292,7 @@ int read_input(char * conf_file){
   quda_input.mg_omega = _default_quda_mg_omega;
   quda_input.mg_run_verify = QUDA_BOOLEAN_YES;
   quda_input.mg_enable_size_three_blocks = _default_quda_mg_enable_size_three_blocks;
+  quda_input.mg_reset_setup_threshold = _default_quda_mg_reset_setup_threshold;
 
   return_check_flag = _default_return_check_flag;
   /* Put -1 in PropInfo.format to see if parse_config() will

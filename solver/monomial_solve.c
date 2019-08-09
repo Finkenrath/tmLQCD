@@ -117,9 +117,11 @@ int solve_degenerate(spinor * const P, spinor * const Q, solver_params_t solver_
         else
                 iteration_count =  cg_her(P, Q, max_iter, eps_sq, rel_prec, N, f);
   } 
-  else
+  
 #endif
-	  
+
+  solver_params.use_initial_guess = 0;
+  
 #ifdef TM_USE_QPHIX
   if(solver_params.external_inverter == QPHIX_INVERTER){
     // using CG for the HMC, we always want to have the solution of (Q Q^dagger) x = b, which is equivalent to
@@ -129,7 +131,8 @@ int solve_degenerate(spinor * const P, spinor * const Q, solver_params_t solver_
     iteration_count = invert_eo_qphix_oneflavour(P, temp[0], max_iter, eps_sq, solver_type, 
                                                  rel_prec, solver_params, solver_params.sloppy_precision, solver_params.compression_type);
     mul_gamma5(P, VOLUME/2);
-  } else
+  }
+  
 #endif
   if(solver_type == MIXEDCG || solver_type == RGMIXEDCG){
     // the default mixed solver is rg_mixed_cg_her
@@ -202,6 +205,8 @@ int solve_mms_tm(spinor ** const P, spinor * const Q,
                  solver_params_t * solver_params){ 
   int iteration_count = 0; 
 
+  solver_params->use_initial_guess = 0;
+
   // temporary field required by the QPhiX solve or by residual check
   spinor ** temp;
   if(g_debug_level > 2 || (solver_params->external_inverter == QPHIX_INVERTER  && solver_params->type != MG)){
@@ -239,10 +244,35 @@ int solve_mms_tm(spinor ** const P, spinor * const Q,
       }
       // Number of initial guesses provided by gcmms
       // README: tunable value. 1 it's fine for now.
-      int no_cgmms_init_guess = 1;
+      int  no_cgmms_init_guess = 1;
       if(no_cgmms_init_guess > mg_nshifts) {
         no_cgmms_init_guess = mg_nshifts;
       }
+#ifdef TM_USE_QPHIX
+      if( solver_params->external_inverter == QPHIX_INVERTER && mg_nshifts < nshifts ) {
+        // TODO: no initial guess option with QphiX
+        no_cgmms_init_guess = 0;
+        spinor ** P_cg = P+(mg_nshifts - no_cgmms_init_guess);
+        double * shifts_start = solver_params->shifts;
+        solver_params->no_shifts = nshifts - (mg_nshifts - no_cgmms_init_guess);
+        solver_params->shifts += (mg_nshifts - no_cgmms_init_guess);
+        solver_params->type = CGMMS;
+        gamma5(temp[0], Q, VOLUME/2);
+        iteration_count = invert_eo_qphix_oneflavour_mshift(P, temp[0],
+                                                            solver_params->max_iter, solver_params->squared_solver_prec,
+                                                            solver_params->type, solver_params->rel_prec,
+                                                            *solver_params,
+                                                            solver_params->sloppy_precision,
+                                                            solver_params->compression_type);
+        for( int shift = 0; shift < solver_params->no_shifts; shift++) {
+          mul_gamma5(P[shift], VOLUME/2);
+        }
+        // Restoring solver_params
+        solver_params->no_shifts = nshifts;
+        solver_params->shifts = shifts_start;
+        solver_params->type = MG;
+        } else
+#endif // TM_USE_QPHIX  
       if (mg_nshifts < nshifts) {
         spinor ** P_cg = P+(mg_nshifts - no_cgmms_init_guess);
         double * shifts_start = solver_params->shifts;
@@ -295,14 +325,16 @@ int solve_mms_tm(spinor ** const P, spinor * const Q,
     double iter_local = 0;
     for(int i = solver_params->no_shifts-1; i>=0; i--){
       // preparing initial guess
-      init_guess_mms(P, Q, i, solver_params);
-      
+      init_guess_mms(P, Q, i, solver_params); 
+      solver_params->use_initial_guess = 1;
+     
       // inverting
       g_mu3 = solver_params->shifts[i]; 
       iter_local = rg_mixed_cg_her( P[i], Q, temp_params, solver_params->max_iter,
                                     solver_params->squared_solver_prec, solver_params->rel_prec, solver_params->sdim,
                                     solver_params->M_psi, f32);
       g_mu3 = _default_g_mu3;
+      solver_params->use_initial_guess = 0;
       if(iter_local == -1){
         return(-1);
       } else {
@@ -337,6 +369,7 @@ int solve_mms_nd(spinor ** const Pup, spinor ** const Pdn,
                  spinor * const Qup, spinor * const Qdn, 
                  solver_params_t * solver_params){ 
   int iteration_count = 0; 
+  solver_params->use_initial_guess = 0;
 
   // temporary field required by the QPhiX solve or by residual check
   spinor ** temp;
@@ -398,11 +431,46 @@ int solve_mms_nd(spinor ** const Pup, spinor ** const Pdn,
         while (mg_mms_mass < solver_params->shifts[mg_nshifts-1]) { mg_nshifts--; }
       }
       // Number of initial guesses provided by gcmms
-      // README: tunable value. 1 it's fine for now.
+      // README: tunable value. 2 it's fine for now.
       int no_cgmms_init_guess = 2;
       if(no_cgmms_init_guess > mg_nshifts) {
         no_cgmms_init_guess = mg_nshifts;
       }
+#ifdef TM_USE_QPHIX
+      if(solver_params->external_inverter == QPHIX_INVERTER && mg_nshifts < nshifts){
+        // TODO: no initial guess option with QphiX
+        no_cgmms_init_guess = 0;
+        spinor ** Pup_cg = Pup+(mg_nshifts - no_cgmms_init_guess);
+        spinor ** Pdn_cg = Pdn+(mg_nshifts - no_cgmms_init_guess);
+        double * shifts_start = solver_params->shifts;
+        solver_params->no_shifts = nshifts - (mg_nshifts - no_cgmms_init_guess);
+        solver_params->shifts += (mg_nshifts - no_cgmms_init_guess);
+        solver_params-> type = CGMMSND;
+        //  gamma5 (M.M^dagger)^{-1} gamma5 = [ Q(+mu,eps) Q(-mu,eps) ]^{-1}
+        gamma5(temp[0], Qup, VOLUME/2);
+        gamma5(temp[1], Qdn, VOLUME/2);
+        iteration_count = invert_eo_qphix_twoflavour_mshift(Pup_cg, Pdn_cg, temp[0], temp[1],
+                                                            solver_params->max_iter, solver_params->squared_solver_prec,
+                                                            solver_params->type, solver_params->rel_prec,
+                                                            *solver_params,
+                                                            solver_params->sloppy_precision,
+                                                            solver_params->compression_type);
+    
+        // the tmLQCD ND operator used for HMC is normalised by the inverse of the maximum eigenvalue
+        // so the inverse of Q^2 is normalised by the square of the maximum eigenvalue
+        // or, equivalently, the square of the inverse of the inverse
+        // note that in the QPhiX interface, we also correctly normalise the shifts
+        const double maxev_sq = (1.0/phmc_invmaxev)*(1.0/phmc_invmaxev);
+        for( int shift = 0; shift < solver_params->no_shifts; shift++){
+          mul_r_gamma5(Pup[shift], maxev_sq, VOLUME/2);
+          mul_r_gamma5(Pdn[shift], maxev_sq, VOLUME/2);
+        }
+        // Restoring solver_params
+        solver_params->no_shifts = nshifts;
+        solver_params->shifts = shifts_start;
+        solver_params-> type = MG;
+      } else
+#endif //TM_USE_QPHIX
       if (mg_nshifts < nshifts) {
         spinor ** Pup_cg = Pup+(mg_nshifts - no_cgmms_init_guess);
         spinor ** Pdn_cg = Pdn+(mg_nshifts - no_cgmms_init_guess);
@@ -464,12 +532,14 @@ int solve_mms_nd(spinor ** const Pup, spinor ** const Pdn,
     for(int i = solver_params->no_shifts-1; i>=0; i--){
       // preparing initial guess
       init_guess_mms_nd(Pup, Pdn, Qup, Qdn, i, solver_params);
+      solver_params->use_initial_guess = 1;
       
       // inverting
       g_shift = solver_params->shifts[i]*solver_params->shifts[i]; 
       iter_local = rg_mixed_cg_her_nd( Pup[i], Pdn[i], Qup, Qdn, temp_params, solver_params->max_iter,
                                        solver_params->squared_solver_prec, solver_params->rel_prec, solver_params->sdim, f, f32);
       g_shift = _default_g_shift;
+      solver_params->use_initial_guess = 0;
       if(iter_local == -1){
         return(-1);
       } else {
