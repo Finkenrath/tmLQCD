@@ -40,7 +40,7 @@
 #define OMF4FG 15
 #define OMF4FG2 16
 #define OMF6FG2 17
-
+#define OPT4FG2 18
 
 typedef void (*integratefk)(const double, const int, const int, const double);
 

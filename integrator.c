@@ -88,7 +88,7 @@ static const double omf4fg_c[4]={
    0.003061810122369770,
    0.0
 };
-/*OMF4FG */
+/*OMF4FG2 */
 static const double omf4fg2_a[5]={
    0.000000000000000000,
    0.192112527742946404,
@@ -110,6 +110,33 @@ static const double omf4fg2_c[5]={
 	0.0,
 	0.0004339598806816256
 };
+
+/*OPT4FG2 - eq. 78*/
+static const double opt4fg2_a[6]={
+   0.06419108866816235,
+   0.1919807940455741,
+   0.24382811728626352,
+   0.24382811728626352, 
+   0.1919807940455741,
+   0.06419108866816235
+};
+static const double opt4fg2_b[6]={
+   0.0,
+   0.1518179640276466,
+   0.2158369476787619,
+   0.26469017658718297, 
+   0.2158369476787619,
+   0.1518179640276466
+};
+static const double opt4fg2_c[6]={
+   0.0,
+   0.0,
+   0.0009628905212024874,
+   0.0,
+   0.0009628905212024874,
+   0.0
+};
+
 /*OMF6FG2 */
 static const double omf6fg2_a[6]={
    0.000000000000000000,
@@ -227,8 +254,10 @@ void integrate_2mn(const double tau, const int S, const int halfstep, const doub
 void integrate_2mnp(const double tau, const int S, const int halfstep, const double tau2);
 /* fourth order force gradient integration scheme */
 void integrate_2mnfg(const double tau, const int S, const int halfstep, const double tau2);
-/* optimal fourth order force gradient integration scheme in velocity version */
+/* optimal fourth order force gradient integration scheme in position version */
 void integrate_opt4fg(const double tau, const int S, const int halfstep, const double tau2);
+/* OPT4FG2 fourth order force gradient integration scheme in position version */
+void integrate_opt4fg2(const double tau, const int S, const int halfstep, const double tau2);
 /* optimal sixth order force gradient integration scheme in velocity version */
 void integrate_opt6fg(const double tau, const int S, const int halfstep, const double tau2);
 /* OMF sixth order force gradient integration scheme */
@@ -261,7 +290,7 @@ int init_integrator() {
     Integrator.no_mnls_per_ts[i] = 0;
   }
   
-  if ((Integrator.type[Integrator.no_timescales-1] == MN2p)||(Integrator.type[Integrator.no_timescales-1] == OPT4FG)||(Integrator.type[Integrator.no_timescales-1] == OPT6FG)||(Integrator.type[Integrator.no_timescales-1] == OPT8FG))
+  if ((Integrator.type[Integrator.no_timescales-1] == MN2p)||(Integrator.type[Integrator.no_timescales-1] == OPT4FG)||(Integrator.type[Integrator.no_timescales-1] == OPT6FG)||(Integrator.type[Integrator.no_timescales-1] == OPT8FG)||(Integrator.type[Integrator.no_timescales-1] == OPT4FG2))
   {
    for(i = 0; i < Integrator.no_timescales; i++) {
       if((Integrator.type[i] == MN2p)||(Integrator.type[i] == MN2)||(Integrator.type[i] == LEAPFROG)) {
@@ -269,6 +298,9 @@ int init_integrator() {
       }
       else if((Integrator.type[i] == OPT4FG)||(Integrator.type[i] == OMF4)||(Integrator.type[i] == MN2FG)||(Integrator.type[i] == OMF4FG)||(Integrator.type[i] == OMF4FG2)) {
          Integrator.integrate[i] = &integrate_opt4fg;
+      }
+      else if((Integrator.type[i] == OPT4FG2)) {
+         Integrator.integrate[i] = &integrate_opt4fg2;
       }
       else if((Integrator.type[i] == OPT6FG)||(Integrator.type[i] == OMF6FG)||(Integrator.type[i] == OMF6FG2)) {
          Integrator.integrate[i] = &integrate_opt6fg;
@@ -675,6 +707,55 @@ void integrate_omf4fg2(const double tau, const int S, const int halfstep, const 
     dohalfstep(tau, S);
   }
   return;
+}
+
+void integrate_opt4fg2(const double tau, const int S, const int halfstep, const double tau2){
+  int i,k;
+  integrator * itgr = &Integrator;
+  double eps  = tau/((double)itgr->n_int[S]);
+  double eps2 = tau2/((double)itgr->n_int[S]); // dummy stepsize
+  
+  if(S == 0) {
+    update_gauge(opt4fg2_a[0]*eps, &itgr->hf);
+    for(i = 1; i < itgr->n_int[0]; i++) {
+       for(k=1;k<6;k++){
+          
+	 if (opt4fg2_c[k]==0.0)
+		update_momenta(itgr->mnls_per_ts[0], opt4fg2_b[k]*eps, itgr->no_mnls_per_ts[0], &itgr->hf);
+	 else
+		update_momenta_fg(itgr->mnls_per_ts[0],eps , opt4fg2_b[k], opt4fg2_c[k] , itgr->no_mnls_per_ts[0], &itgr->hf);
+			 
+          update_gauge(opt4fg2_a[k]*eps, &itgr->hf);
+       }
+      update_momenta_fg(itgr->mnls_per_ts[0],eps , opt4fg2_b[5], opt4fg2_c[5] , itgr->no_mnls_per_ts[0], &itgr->hf);
+      update_gauge(2*opt4fg2_a[5]*eps, &itgr->hf);
+    }
+    
+   for(k=1;k<6;k++){
+		
+	if (opt4fg2_c[k]==0.0)
+		update_momenta(itgr->mnls_per_ts[S], opt4fg2_b[k]*eps, itgr->no_mnls_per_ts[S], &itgr->hf);
+	else
+		update_momenta_fg(itgr->mnls_per_ts[S],eps , opt4fg2_b[k], opt4fg2_c[k] , itgr->no_mnls_per_ts[S], &itgr->hf);
+		
+      update_gauge(opt4fg2_a[k]*eps, &itgr->hf);
+   }
+  }
+  else {
+    for(i = 0; i < itgr->n_int[S]; i++) {
+   
+      itgr->integrate[S-1](opt4fg2_a[0]*eps, S-1, halfstep, opt4fg2_a[1]*eps);
+      for(k=1;k<6;k++){
+			
+	 if (opt4fg2_c[k]==0.0)
+		update_momenta(itgr->mnls_per_ts[S], opt4fg2_b[k]*eps, itgr->no_mnls_per_ts[S], &itgr->hf);
+	 else
+		update_momenta_fg(itgr->mnls_per_ts[S],eps , opt4fg2_b[k], opt4fg2_c[k] , itgr->no_mnls_per_ts[S], &itgr->hf);
+         itgr->integrate[S-1](opt4fg2_a[k]*eps, S-1, halfstep, opt4fg2_a[(k+1)%6]*eps);
+
+       }
+    }
+  }
 }
 
 void integrate_omf6fg2(const double tau, const int S, const int halfstep, const double tau2){

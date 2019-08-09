@@ -2296,6 +2296,9 @@ static inline double fltlist_next_token(int * const list_end){
     }
     else if(strcmp(type, "OMF6FG2")==0) {
       Integrator.type[a] = OMF6FG2;
+	 }
+    else if(strcmp(type, "OPT4FG2")==0) {
+      Integrator.type[a] = OPT4FG2;
     }
     else {
       fprintf(stderr, "Unknown integrator type %s in line %d\n", yytext, line_of_file);
