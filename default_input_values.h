@@ -116,6 +116,12 @@
 #define _default_g_debug_level 1
 #define _default_g_csg_N 0
 #define _default_2mn_lambda 0.1938
+#define _default_omfp5_theta 1.0798524263824310
+#define _default_omfp5_nu 0.35995080879414365
+#define _default_omfp5_lam -0.14371472730265417
+#define _default_omfp5_mu 0.0
+#define _default_omfp5_xi -0.013965254224238837
+#define _default_omfp5_chi -0.039247029382345630
 #define _default_source_format_flag 0
 #define _default_source_time_slice 0
 #define _default_automaticTS 0

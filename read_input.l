@@ -224,6 +224,11 @@ static inline double fltlist_next_token(int * const list_end){
   int use_preconditioning;
 
   int tune_check_flag;
+  double omfp5_theta;
+  double omfp5_nu;
+  double omfp5_lam;
+  double omfp5_mu;
+  double omfp5_chi;
   /* macro control over read_input.l is poor. In order to support compilation without
    * a given external library, we need to have these declared here as a dummy.
    * Note that no parameters will actually be passed, the input file reader will
@@ -2284,6 +2289,12 @@ static inline double fltlist_next_token(int * const list_end){
   Integrator.monitor_forces = 0;
   for(i = 0; i < 10; i++) {
     Integrator.lambda[i] = _default_2mn_lambda;
+    Integrator.omfp5_theta[i] = _default_omfp5_theta;
+    Integrator.omfp5_nu[i] = _default_omfp5_nu;
+    Integrator.omfp5_lam[i] = _default_omfp5_lam;
+    Integrator.omfp5_mu[i] = _default_omfp5_mu;
+    Integrator.omfp5_xi[i] = _default_omfp5_xi;
+    Integrator.omfp5_chi[i] = _default_omfp5_chi;
     Integrator.type[i] = MN2;
   }
   if(myverbose) printf("initialising integrator line %d\n", line_of_file);
@@ -2310,6 +2321,9 @@ static inline double fltlist_next_token(int * const list_end){
     }
     else if(strcmp(type, "OMF6FG")==0) {
       Integrator.type[a] = OMF6FG;
+    }
+    else if(strcmp(type, "OMFP5")==0) {
+      Integrator.type[a] = OMFP5;
     }
    else if(strcmp(type, "OMF8FG")==0) {
       Integrator.type[a] = OMF8FG;
@@ -2365,6 +2379,44 @@ static inline double fltlist_next_token(int * const list_end){
     if(myverbose) printf("  timescale %d Lambda=%f line %d\n", a, c, line_of_file);
     BEGIN(INTEGRATOR);
   }
+  {SPC}*OmfpFiveTheta{DIGIT}{EQL}{FLT} {
+    sscanf(yytext, " %[a-zA-Z]%d = %lf", name, &a, &c);
+    Integrator.omfp5_theta[a] = c;
+    if(myverbose) printf("  timescale %d Omfp5_theta=%f line %d\n", a, c, line_of_file);
+    BEGIN(INTEGRATOR);
+  }
+  {SPC}*OmfpFiveNu{DIGIT}{EQL}{FLT} {
+    sscanf(yytext, " %[a-zA-Z]%d = %lf", name, &a, &c);
+    Integrator.omfp5_nu[a] = c;
+    if(myverbose) printf("  timescale %d Omfp5_nu=%f line %d\n", a, c, line_of_file);
+    BEGIN(INTEGRATOR);
+  }
+  {SPC}*OmfpFiveLam{DIGIT}{EQL}{FLT} {
+    sscanf(yytext, " %[a-zA-Z]%d = %lf", name, &a, &c);
+    Integrator.omfp5_lam[a] = c;
+    if(myverbose) printf("  timescale %d Omfp5_lam=%f line %d\n", a, c, line_of_file);
+    BEGIN(INTEGRATOR);
+  }
+  {SPC}*OmfpFiveMu{DIGIT}{EQL}{FLT} {
+    sscanf(yytext, " %[a-zA-Z]%d = %lf", name, &a, &c);
+    Integrator.omfp5_mu[a] = c;
+    if(myverbose) printf("  timescale %d Omfp5_mu=%f line %d\n", a, c, line_of_file);
+    BEGIN(INTEGRATOR);
+  }
+  {SPC}*OmfpFiveXi{DIGIT}{EQL}{FLT} {
+    sscanf(yytext, " %[a-zA-Z]%d = %lf", name, &a, &c);
+    Integrator.omfp5_xi[a] = c;
+    if(myverbose) printf("  timescale %d Omfp5_xi=%f line %d\n", a, c, line_of_file);
+    BEGIN(INTEGRATOR);
+  }
+  {SPC}*OmfpFiveChi{DIGIT}{EQL}{FLT} {
+    sscanf(yytext, " %[a-zA-Z]%d = %lf", name, &a, &c);
+    Integrator.omfp5_chi[a] = c;
+    if(myverbose) printf("  timescale %d Omfp5_chi=%f line %d\n", a, c, line_of_file);
+    BEGIN(INTEGRATOR);
+  }
+  
+  
   {SPC}*NumberOfTimescales{EQL}{DIGIT}+ {
     sscanf(yytext, " %[a-zA-Z] = %d", name, &a);
     if(myverbose) printf("  Number of timescales set to %d line %d\n", a, line_of_file);

@@ -139,6 +139,12 @@ extern "C"
   extern int mg_update_setup_iter;
   extern int mg_omp_num_threads;
   
+  extern double omfp5_theta;
+  extern double omfp5_nu;
+  extern double omfp5_lam;
+  extern double omfp5_mu;
+  extern double omfp5_chi;
+  
   extern int tune_check_flag;
   
   int read_input(char *);

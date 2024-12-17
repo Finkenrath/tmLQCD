@@ -41,6 +41,7 @@
 #define OMF4FG2 16
 #define OMF6FG2 17
 #define OPT4FG2 18
+#define OMFP5   19
 
 typedef void (*integratefk)(const double, const int, const int, const double);
 
@@ -59,6 +60,14 @@ typedef struct {
   double tau;
   /* lambda parameter for 2MN integration scheme */
   double lambda[10];
+  /* parameters for OMFP5 integration scheme */
+  double omfp5_theta[10];
+  double omfp5_nu[10];
+  double omfp5_lam[10];
+  double omfp5_mu[10];
+  double omfp5_xi[10];
+  double omfp5_chi[10];
+  
   /* monomials per timescale */
   int mnls_per_ts[10][10];
   /* number of monomials per timescale */
